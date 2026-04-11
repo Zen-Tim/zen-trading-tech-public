@@ -1,6 +1,6 @@
 # Zen OOH / OOL — Open on High / Open on Low
 
-A TradingView indicator that flags days where the **opening bar** of a session prints its open exactly at the **high** or **low** of that bar. These "shaved opens" are a high-conviction directional tell on the first bar of the day.
+A TradingView indicator that flags sessions where the **first bar of the day** prints its open exactly at the **high** or **low** of that opening bar. These "shaved opening bars" are a directional tell about who showed up at the open — bulls or bears.
 
 📖 **Read the full write-up:** [Shaved Opens Revisited — Open on High, Open on Low](https://zentradingtech.com/2026/04/11/shaved-opens-revisited-open-on-high-open-on-low/)
 
@@ -8,14 +8,16 @@ A TradingView indicator that flags days where the **opening bar** of a session p
 
 ## What it does
 
-On the first bar of each new trading day, the indicator checks whether `open == high` (Open on High, bearish) or `open == low` (Open on Low, bullish). When it finds one, it:
+On the first bar of each new trading day, the indicator checks whether the bar's open equals its own high (`open == high` → Open on High, bearish) or its own low (`open == low` → Open on Low, bullish). Note this is about the **opening bar itself**, not about the high or low of the whole day — a shaved opening bar may or may not end up holding as the day's extreme. It is a subset of the broader question of which bar of the day prints HOD or LOD.
+
+When the indicator finds a shaved opening bar, it:
 
 - **Plots an arrow** above (O=H) or below (O=L) the bar
 - **Highlights the opening bar** with a translucent background band
-- **Counts occurrences** in a stats table (top right) showing total days, O=L count, O=H count, and either as a percentage of all days observed
+- **Counts occurrences** in a stats table (top right) showing total days observed, O=L count, O=H count, and either as a percentage
 - **Fires an alert** (optional) so you can be notified live
 
-The "either" stat is the headline number — across the symbols and timeframes Zen tracks, it sits in a meaningful range that makes shaved opens worth watching as a daily probability cue.
+The "either" stat is the headline number — across the symbols and timeframes Zen tracks, it sits at a level that makes shaved opening bars worth watching as a daily directional cue.
 
 ---
 
@@ -29,7 +31,7 @@ This is a **Pine Script v5** indicator for TradingView. To use it:
 4. Click **Save** (give it a name) then **Add to chart**
 5. Configure inputs via the gear icon on the indicator
 
-> The source is provided as a `.txt` file rather than `.pine` so it's easy to view directly on GitHub and copy-paste into the Pine Editor without download steps.
+> The source is provided as a `.txt` file rather than `.pine` so it renders cleanly on GitHub and copy-pastes straight into the Pine Editor without a download step.
 
 ---
 
@@ -37,7 +39,7 @@ This is a **Pine Script v5** indicator for TradingView. To use it:
 
 | Group | Input | Default | Notes |
 |---|---|---|---|
-| Logic | Tolerance (ticks) | 0 | 0 = exact match. Increase to allow open within N ticks of HOD/LOD |
+| Logic | Tolerance (ticks) | 0 | 0 = exact match. Increase to allow open within N ticks of the opening bar's high or low |
 | Display | Show arrows | true | Up arrow for O=L, down arrow for O=H |
 | Display | Show arrow labels | true | Adds "O=L" / "O=H" text on the arrow |
 | Display | Highlight opening bar | true | Translucent background band on the bar |
@@ -52,10 +54,10 @@ This is a **Pine Script v5** indicator for TradingView. To use it:
 
 ## How to read it
 
-- **Open = Low** → the session opened on its lowest tick. Bears had no presence at the open. Bias is bullish for the session — fade pullbacks down toward the open.
-- **Open = High** → the session opened on its highest tick. Bulls had no presence at the open. Bias is bearish for the session — fade pullbacks up toward the open.
+- **Open = Low (O=L)** → the opening bar opened on its own low. No sellers were willing to take price below the open on the first bar — bullish tell.
+- **Open = High (O=H)** → the opening bar opened on its own high. No buyers were willing to take price above the open on the first bar — bearish tell.
 
-The blog post covers nuance, base rates, and how to combine this with other context.
+A shaved opening bar is a statement about who controlled the very first bar of the session. Whether that control persists through the day is a separate question — see the blog post for context, base rates, and how to combine this with other read.
 
 ---
 

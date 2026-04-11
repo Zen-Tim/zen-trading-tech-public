@@ -10,7 +10,7 @@ All indicators are released under the MIT License.
 
 ### [Zen OOH / OOL — Open on High / Open on Low](./Zen-OOH-OOL)
 
-A TradingView Pine Script v5 indicator that flags days where the opening bar of a session prints its open exactly at the high (bearish shave) or exactly at the low (bullish shave) of that bar. Plots arrows, highlights the opening bar, runs a stats table of occurrences, and fires optional alerts.
+A TradingView Pine Script v5 indicator that flags sessions where the **first bar of the day** prints its open exactly at the high (bearish shave) or exactly at the low (bullish shave) of that opening bar. Plots arrows, highlights the opening bar, runs a stats table of occurrences, and fires optional alerts. Note this is about the opening bar itself — not the high or low of the whole day.
 
 **Read the write-up:** [Shaved Opens Revisited — Open on High, Open on Low](https://zentradingtech.com/2026/04/11/shaved-opens-revisited-open-on-high-open-on-low/)
 
