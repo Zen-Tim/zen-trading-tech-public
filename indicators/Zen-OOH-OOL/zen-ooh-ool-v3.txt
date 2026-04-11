@@ -1,0 +1,110 @@
+//@version=5
+indicator("Zen OOH OOL v3", overlay=true, max_labels_count=500)
+
+// ============================================================
+// INPUTS
+// ============================================================
+grpLogic    = "Logic"
+tolTicks    = input.int(0, "Tolerance (ticks)", minval=0, group=grpLogic,
+     tooltip="0 = exact match. Increase to allow open within N ticks of HOD/LOD.")
+
+grpDisplay  = "Display"
+showArrows  = input.bool(true,  "Show arrows",            group=grpDisplay)
+showLabels  = input.bool(true,  "Show arrow labels",      group=grpDisplay)
+showBg      = input.bool(true,  "Highlight opening bar",  group=grpDisplay)
+bgTransp    = input.int(85, "Background transparency", minval=50, maxval=99, group=grpDisplay,
+     tooltip="Higher = more translucent. 85 is a good scroll-friendly default.")
+showTable   = input.bool(true,  "Show stats table",       group=grpDisplay)
+
+grpColors   = "Colors"
+colOL       = input.color(color.new(#26a69a, 0), "Open = Low  (bullish)", group=grpColors)
+colOH       = input.color(color.new(#ef5350, 0), "Open = High (bearish)", group=grpColors)
+
+grpAlerts   = "Alerts"
+alertOL     = input.bool(true, "Alert on Open = Low",  group=grpAlerts)
+alertOH     = input.bool(true, "Alert on Open = High", group=grpAlerts)
+
+// ============================================================
+// SESSION DETECTION — first bar of new day
+// ============================================================
+isNewDay = dayofweek != dayofweek[1]
+
+// ============================================================
+// LOGIC
+// ============================================================
+tol         = tolTicks * syminfo.mintick
+opensOnLow  = isNewDay and math.abs(open - low)  <= tol
+opensOnHigh = isNewDay and math.abs(open - high) <= tol
+
+// ============================================================
+// BAR HIGHLIGHT (translucent, one-bar vertical band)
+// ============================================================
+bgcolor(showBg and opensOnLow  ? color.new(colOL, bgTransp) : na, title="O=L highlight")
+bgcolor(showBg and opensOnHigh ? color.new(colOH, bgTransp) : na, title="O=H highlight")
+
+// ============================================================
+// PLOTS
+// ============================================================
+plotshape(showArrows and showLabels and opensOnLow,
+     title="Open = Low (labeled)",  style=shape.arrowup,   location=location.belowbar,
+     color=colOL, size=size.normal, text="O=L")
+
+plotshape(showArrows and not showLabels and opensOnLow,
+     title="Open = Low",            style=shape.arrowup,   location=location.belowbar,
+     color=colOL, size=size.normal)
+
+plotshape(showArrows and showLabels and opensOnHigh,
+     title="Open = High (labeled)", style=shape.arrowdown, location=location.abovebar,
+     color=colOH, size=size.normal, text="O=H")
+
+plotshape(showArrows and not showLabels and opensOnHigh,
+     title="Open = High",           style=shape.arrowdown, location=location.abovebar,
+     color=colOH, size=size.normal)
+
+// ============================================================
+// STATS TABLE (top right)
+// ============================================================
+var int countDays = 0
+var int countOL   = 0
+var int countOH   = 0
+
+if isNewDay
+    countDays += 1
+    if opensOnLow
+        countOL += 1
+    if opensOnHigh
+        countOH += 1
+
+var table stats = table.new(position.top_right, 2, 5,
+     bgcolor=color.new(color.white, 0), border_color=color.new(color.gray, 70), border_width=1)
+
+f_pct(x, n) => n == 0 ? "–" : str.tostring(100.0 * x / n, "#.0") + "%"
+
+if showTable and barstate.islast
+    table.clear(stats, 0, 0, 1, 4)
+    table.cell(stats, 0, 0, "Zen O=HOD/LOD", text_color=color.black, bgcolor=color.new(color.gray, 85), text_size=size.small)
+    table.cell(stats, 1, 0, syminfo.ticker,  text_color=color.black, bgcolor=color.new(color.gray, 85), text_size=size.small)
+
+    table.cell(stats, 0, 1, "Days",    text_color=color.black, text_size=size.small)
+    table.cell(stats, 1, 1, str.tostring(countDays), text_color=color.black, text_size=size.small)
+
+    table.cell(stats, 0, 2, "Open=Low",  text_color=color.black, text_size=size.small)
+    table.cell(stats, 1, 2, str.tostring(countOL) + "  (" + f_pct(countOL, countDays) + ")",
+         text_color=color.black, text_size=size.small)
+
+    table.cell(stats, 0, 3, "Open=High", text_color=color.black, text_size=size.small)
+    table.cell(stats, 1, 3, str.tostring(countOH) + "  (" + f_pct(countOH, countDays) + ")",
+         text_color=color.black, text_size=size.small)
+
+    table.cell(stats, 0, 4, "Either",    text_color=color.black, text_size=size.small)
+    table.cell(stats, 1, 4, str.tostring(countOL + countOH) + "  (" + f_pct(countOL + countOH, countDays) + ")",
+         text_color=color.black, text_size=size.small)
+
+// ============================================================
+// ALERTS
+// ============================================================
+if alertOL and opensOnLow
+    alert("Open = LOW on " + syminfo.ticker + " — bullish shave, fade down toward open", alert.freq_once_per_bar_close)
+
+if alertOH and opensOnHigh
+    alert("Open = HIGH on " + syminfo.ticker + " — bearish shave, fade up toward open", alert.freq_once_per_bar_close)
