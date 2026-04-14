@@ -14,6 +14,10 @@ A TradingView Pine Script v5 indicator that flags sessions where the **first bar
 
 **Read the write-up:** [Shaved Opens Revisited — Open on High, Open on Low](https://zentradingtech.com/2026/04/11/shaved-opens-revisited-open-on-high-open-on-low/)
 
+### [Zen Bar Count — Intraday Bar Counter](./Zen-Bar-Count)
+
+A TradingView Pine Script v5 indicator that counts bars from the start of each new trading day and labels them on the chart at a configurable interval, with a second larger interval drawn in a highlight colour (e.g. every hour on a 5-minute chart). A simple tool for time-of-day awareness — see where you are inside the day at a glance, without squinting at the X-axis. Bar count is also exported to the Data Window for downstream use.
+
 ---
 
 ## How to use
@@ -25,3 +29,5 @@ Each indicator is provided as a `.txt` file containing Pine Script source. To in
 3. Save and add to chart
 
 See each indicator's own README for inputs, configuration, and reading guidance.
+
+---

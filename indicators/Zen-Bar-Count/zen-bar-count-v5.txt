@@ -1,0 +1,24 @@
+//@version=5
+indicator("Zen Bar Count v5", overlay=true, max_labels_count=500)
+// ── Display ──
+showBarCount    = input.bool(true, "Show Bar Count")
+barLabelSize    = input.string("small", "Label Size", options=["auto", "tiny", "small", "normal", "large", "huge"])
+// ── Intervals ──
+barColorInterval    = input.int(3, "Label Every N Bars", minval=1, tooltip="Show a label every N bars")
+hourlyBarInterval   = input.int(12, "Highlight Every N Bars", minval=1, tooltip="Use highlight colour at this interval")
+// ── Colours ──
+colDefault      = input.color(color.green, "Default Colour")
+colHighlight    = input.color(color.red, "Highlight Colour")
+// ── Bar Count Logic ──
+var int totalBarCount = na
+if ta.change(time("D"))
+    totalBarCount := 1
+else
+    totalBarCount += 1
+// ── Export to Data Window / CSV ──
+plot(totalBarCount, title="Bar Count", display=display.data_window)
+// ── Labels ──
+shouldShowLabel = showBarCount and totalBarCount % barColorInterval == 0
+if shouldShowLabel
+    textColor = totalBarCount % hourlyBarInterval == 0 ? colHighlight : colDefault
+    label.new(bar_index, low, str.tostring(totalBarCount), style=label.style_none, color=color.new(color.white, 100), textcolor=textColor, size=barLabelSize, yloc=yloc.belowbar)
