@@ -27,5 +27,4 @@ For walkthroughs and live commentary: [YouTube](https://www.youtube.com/@zentrad
 
 ## License
 
-Code and indicators released under the MIT License.
-Data is free to use with attribution to Zen Trading Tech.
+Released under the [MIT License](./LICENSE).
