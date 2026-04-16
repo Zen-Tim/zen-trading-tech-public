@@ -1,0 +1,67 @@
+//@version=5
+indicator("Zen Big Bar Midpoints v1.8", overlay=true, max_lines_count=500, max_boxes_count=500)
+// ============================================================
+// INPUTS
+// ============================================================
+grpDetect = "Big Bar Detection"
+abrLookback   = input.int(8,    "ABR Lookback",          minval=1, group=grpDetect)
+bigBarMult    = input.float(1.6,"Big Bar Threshold (x ABR)", minval=0.1, step=0.1, group=grpDetect)
+showBull      = input.bool(true,"Show Bull Bars",         group=grpDetect)
+showBear      = input.bool(true,"Show Bear Bars",         group=grpDetect)
+grpMid = "Midpoints (H-L mid & Extreme-Close mid)"
+midMode       = input.string("Lines", "Display Mode", options=["Lines", "Boxes", "Off"], group=grpMid)
+midBullColor  = input.color(color.blue, "Bull Colour",       group=grpMid)
+midBearColor  = input.color(color.red,  "Bear Colour",       group=grpMid)
+midBoxTransp  = input.int(75, "Box Fill Transparency", minval=0, maxval=100, group=grpMid)
+grpFrac = "Fractional Levels (0.33 / 0.66)"
+fracMode      = input.string("Off", "Display Mode", options=["Lines", "Boxes", "Off"], group=grpFrac)
+fracLow       = input.float(0.33,"Lower Fraction",  minval=0.0, maxval=1.0, step=0.01, group=grpFrac)
+fracHigh      = input.float(0.66,"Upper Fraction",  minval=0.0, maxval=1.0, step=0.01, group=grpFrac)
+fracBullColor = input.color(color.blue, "Bull Colour",       group=grpFrac)
+fracBearColor = input.color(color.red,  "Bear Colour",       group=grpFrac)
+fracBoxTransp = input.int(50, "Box Fill Transparency", minval=0, maxval=100, group=grpFrac)
+grpStyle = "Line Style"
+extendBars    = input.int(10,    "Extension (bars)", minval=1, group=grpStyle)
+lineWidth     = input.int(2,     "Line Width",       minval=1, maxval=4, group=grpStyle)
+// ============================================================
+// CALCULATIONS
+// ============================================================
+barRange = high - low
+abr      = ta.sma(barRange[1], abrLookback)
+isBigBar = barRange > abr * bigBarMult
+isBull   = close > open
+isBear   = close < open
+plotThis = isBigBar and ((isBull and showBull) or (isBear and showBear))
+midLineCol  = isBull ? midBullColor  : midBearColor
+midFillCol  = color.new(midLineCol, midBoxTransp)
+fracLineCol = isBull ? fracBullColor : fracBearColor
+fracFillCol = color.new(fracLineCol, fracBoxTransp)
+// ============================================================
+// HELPERS
+// ============================================================
+f_drawLine(_price, _col) =>
+    line.new(bar_index, _price, bar_index + extendBars, _price, xloc=xloc.bar_index, extend=extend.none, color=_col, style=line.style_dotted, width=lineWidth)
+f_drawBox(_top, _bot, _col, _border) =>
+    box.new(bar_index, _top, bar_index + extendBars, _bot, xloc=xloc.bar_index, border_color=_border, border_width=1, border_style=line.style_dotted, bgcolor=_col)
+// ============================================================
+// DRAWING
+// ============================================================
+if plotThis
+    midFull  = (high + low) / 2
+    midClose = isBull ? (low + close) / 2 : (high + close) / 2
+    if midMode == "Lines"
+        f_drawLine(midFull,  midLineCol)
+        f_drawLine(midClose, midLineCol)
+    else
+        if midMode == "Boxes"
+            topM = math.max(midFull, midClose)
+            botM = math.min(midFull, midClose)
+            f_drawBox(topM, botM, midFillCol, midLineCol)
+    lvlLow  = low + barRange * fracLow
+    lvlHigh = low + barRange * fracHigh
+    if fracMode == "Lines"
+        f_drawLine(lvlLow,  fracLineCol)
+        f_drawLine(lvlHigh, fracLineCol)
+    else
+        if fracMode == "Boxes"
+            f_drawBox(lvlHigh, lvlLow, fracFillCol, fracFillCol)
