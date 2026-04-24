@@ -1,0 +1,82 @@
+//@version=5
+indicator("Zen ATH Bands v2.0", overlay=true)
+
+// ============================================================================
+//  Zen ATH Bands v2.0 · 20260424
+//  Plots the all-time high (ATH) and a configurable ladder of percentage
+//  pullback levels below it. Seven independently-toggleable levels with
+//  customisable % offsets and colours. Useful for cash indices and other
+//  instruments where ATH and its higher-timeframe pullback zones matter.
+//
+//  Reference write-up:
+//  https://zentradingtech.com/2025/12/19/cash-indices-and-higher-time-frame-pullbacks/
+// ============================================================================
+
+// -------- Inputs --------
+refMode    = input.int(1, "Reference (0=Last price, 1=ATH)", minval=0, maxval=1)
+offsetBars = input.int(30, "Right offset (bars)", minval=5, maxval=200)
+
+// --- Level Percentages ---
+showATH = input.bool(true, "Show ATH line", group="Level 0")
+clrATH  = input.color(color.teal, "ATH Color", group="Level 0")
+
+show1   = input.bool(true, "Show Level 1", group="Level 1")
+p1      = input.float(2.5, "Level 1 % Down", minval=0, step=0.5, group="Level 1")
+clr1    = input.color(color.green, "Color 1", group="Level 1")
+
+show2   = input.bool(true, "Show Level 2", group="Level 2")
+p2      = input.float(5.0, "Level 2 % Down", minval=0, step=0.5, group="Level 2")
+clr2    = input.color(color.lime, "Color 2", group="Level 2")
+
+show3   = input.bool(true, "Show Level 3", group="Level 3")
+p3      = input.float(10.0, "Level 3 % Down", minval=0, step=0.5, group="Level 3")
+clr3    = input.color(color.orange, "Color 3", group="Level 3")
+
+show4   = input.bool(true, "Show Level 4", group="Level 4")
+p4      = input.float(15.0, "Level 4 % Down", minval=0, step=0.5, group="Level 4")
+clr4    = input.color(color.red, "Color 4", group="Level 4")
+
+show5   = input.bool(true, "Show Level 5", group="Level 5")
+p5      = input.float(20.0, "Level 5 % Down", minval=0, step=0.5, group="Level 5")
+clr5    = input.color(color.maroon, "Color 5", group="Level 5")
+
+show6   = input.bool(true, "Show Level 6", group="Level 6")
+p6      = input.float(25.0, "Level 6 % Down", minval=0, step=0.5, group="Level 6")
+clr6    = input.color(color.purple, "Color 6", group="Level 6")
+
+show7   = input.bool(true, "Show Level 7", group="Level 7")
+p7      = input.float(30.0, "Level 7 % Down", minval=0, step=0.5, group="Level 7")
+clr7    = input.color(color.gray, "Color 7", group="Level 7")
+
+// -------- Exact ATH Calculation --------
+var float ath = na
+ath := na(ath[1]) ? high : math.max(ath[1], high)
+
+// Reference Selection
+ref = refMode == 0 ? close : ath
+
+// -------- Helper Function --------
+f_line_and_label(_cond, _perc, _clr) =>
+    if _cond
+        float _lvl = ref * (1 - (_perc / 100))
+        string _txt = str.tostring(_perc) + "%"
+        line.new(bar_index, _lvl, bar_index + 1, _lvl, extend=extend.right, color=_clr, width=2)
+        label.new(bar_index + offsetBars, _lvl, _txt + " (" + str.tostring(_lvl, format.mintick) + ")",
+             textcolor=color.white, style=label.style_label_right, color=_clr)
+
+// -------- Execution (Draw once on the last bar) --------
+if barstate.islastconfirmedhistory
+    // Handle ATH separately as it's 0% offset
+    if showATH
+        line.new(bar_index, ref, bar_index + 1, ref, extend=extend.right, color=clrATH, width=2)
+        label.new(bar_index + offsetBars, ref, "ATH (" + str.tostring(ref, format.mintick) + ")",
+             textcolor=color.white, style=label.style_label_right, color=clrATH)
+
+    // Handle Custom Levels
+    f_line_and_label(show1, p1, clr1)
+    f_line_and_label(show2, p2, clr2)
+    f_line_and_label(show3, p3, clr3)
+    f_line_and_label(show4, p4, clr4)
+    f_line_and_label(show5, p5, clr5)
+    f_line_and_label(show6, p6, clr6)
+    f_line_and_label(show7, p7, clr7)

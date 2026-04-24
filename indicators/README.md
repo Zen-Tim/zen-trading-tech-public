@@ -22,6 +22,16 @@ A TradingView Pine Script v5 indicator that counts bars from the start of each n
 
 A TradingView Pine Script v5 indicator that detects big bars (range greater than a configurable multiple of the 8-bar ABR, default 1.6x) and draws two midpoints on them — the high-low mid and the extreme-close mid — plus optional 0.33 / 0.66 fractional levels. Each set can be displayed as dotted lines or a translucent box, with independent bull/bear colours and separate toggles for each direction.
 
+### [Zen Trading Toolkit](./Zen-Trading-Toolkit)
+
+A TradingView Pine Script v6 multi-module indicator combining three research tools in one: ABR Measured Moves (from yesterday's close), Opening Range (N-bar box via calendar day detection), and a Volatility Stats Table (ABR plus ADR for both RTH and ETH). Instrument presets for ES, FDAX, HSI, and Nikkei with timezone-aware session detection built in. Every module and metric is independently toggleable.
+
+### [Zen ATH Bands — All-Time High Pullback Levels](./Zen-ATH-Bands)
+
+A TradingView Pine Script v5 indicator that plots the all-time high and a configurable ladder of percentage pullback levels below it. Seven independently-toggleable levels with customisable offsets and colours. Useful for cash indices and other instruments where ATH and its higher-timeframe pullback zones matter for context.
+
+**Read the write-up:** [Cash Indices and Higher Time Frame Pullbacks](https://zentradingtech.com/2025/12/19/cash-indices-and-higher-time-frame-pullbacks/)
+
 ---
 
 ## How to use

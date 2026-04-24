@@ -1,0 +1,59 @@
+OVERVIEW
+
+Three research modules combined into one overlay indicator, with every feature independently toggleable. Built to answer three practical questions on intraday index futures charts: where are the normal-day targets from yesterday's close, where are the breakout targets from the 18-bar opening range, and how stretched is today's move relative to the average.
+
+WHAT MAKES THIS DIFFERENT
+
+Most ABR/ADR and opening-range tools either use 24-hour ranges or assume a single session. This indicator does three things differently:
+
+1. Session-aware RTH tracking. The ADR uses session-filtered highs and lows, not 24-hour daily bars. Snapshot and rollover both happen on the first bar of the session, which makes it work correctly on RTH-only charts where there is no session-end transition, and on charts that include extended hours.
+
+2. Instrument presets with timezones. A single dropdown sets the correct RTH session and timezone for ES, FDAX, HSI, and Nikkei 225 futures. No typing session strings, no DST adjustments.
+
+3. Data Window exposure. Every stats-table metric is also published as a Data Window plot, so the values remain available even when the on-chart table is hidden. Useful for spreadsheet export, historical bar inspection, and clean-chart workflows.
+
+MODULE 1 - ABR MEASURED MOVES
+
+Projects 0.5x, 1x, 1.5x, and 2x ABR targets from yesterday's RTH close. Also plots yesterday's high and low, and the original 1x measured move from yesterday's range extremes.
+
+ABR here is the Average Bar Range - the rolling average of daily RTH ranges over a configurable lookback (default 8 days). 1x from yesterday's close represents a typical day's travel on index futures; 2x is rare, hit roughly 1 percent of days.
+
+MODULE 2 - OPENING RANGE
+
+Default 18 bars, which is 90 minutes on a 5-minute chart. Locks the range at the end of bar 18 and draws a box plus configurable breakout projections at 0.25x, 0.5x, 0.75x, 1x, 1.5x, and 2x of the range, in both directions.
+
+MODULE 3 - VOLATILITY STATS TABLE
+
+Compact on-chart table showing:
+- ABR: chart-timeframe average bar range
+- ADR: average daily range, RTH and ETH columns
+- Today: current session's range
+- % ADR: percentage of ADR already used (turns red at 80%)
+- OR %: opening range as a percentage of RTH ADR (fills in once the OR locks)
+- Swing: swing target in points (% of RTH ADR, configurable, default 40%)
+- Scalp: scalp target in points (% of RTH ADR, configurable, default 10%)
+
+INSTRUMENT PRESETS
+
+- ES (CME E-mini S&P 500): 0830-1600 America/Chicago
+- FDAX (EUREX DAX): 0900-1730 Europe/Berlin
+- HSI (HKEX Hang Seng): 0915-1630 Asia/Hong_Kong
+- Nikkei (OSE Nikkei 225): 0845-1550 Asia/Tokyo
+- Custom: set your own session and timezone
+
+HOW TO USE
+
+1. Add to a 5-minute chart of one of the supported instruments.
+2. In settings, pick your instrument from the dropdown.
+3. Toggle the modules and features you want. If you only want the stats table, turn the MM lines and the OR box off. If you only want the OR, hide the table.
+4. Adjust the Swing and Scalp percentages to match how you size your targets.
+
+WORKS ON
+
+RTH-only charts and charts including extended hours. Designed for 5-minute and other intraday timeframes on index futures.
+
+NOTES
+
+This is a research tool. It shows volatility and structure context; it does not generate buy or sell signals and makes no claim about future performance.
+
+Open-source under the Mozilla Public License 2.0.

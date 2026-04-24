@@ -1,0 +1,604 @@
+//@version=6
+// ============================================================================
+// ZEN TRADING TOOLKIT v1.8.1
+// ============================================================================
+// Three research modules, every feature independently toggleable.
+// No external library dependencies. Instrument presets with timezone.
+//
+//   MODULE 1 — ABR Measured Moves (from y.Close)
+//   MODULE 2 — Opening Range (N-bar box via calendar day detection)
+//   MODULE 3 — Volatility Stats Table (ABR + ADR RTH/ETH)
+//
+// v1.4 fix: session snapshot + rollover both happen on first_bar.
+// Works on RTH-only charts (no session_end transition) and extended hours.
+//
+// v1.5 changes:
+//   - Stats table: % ADR row turns red when >= 80% (hard-coded threshold)
+//   - Stats table: new OR % row showing 18-bar opening range as % of RTH ADR
+//     (RTH column only; blank until OR is locked at bar 18)
+//   - Module 2: added 0.25x OR projection toggle + colour input
+//
+// v1.7 changes:
+//   - Stats table: new Swing row (ADR * configurable %, default 40%) — RTH only
+//   - Stats table: new Scalp row (ADR * configurable %, default 10%) — RTH only
+//   - Both rows independently toggleable; ETH column shows '-'
+//
+// v1.8 changes:
+//   - All stats-table metrics exposed as Data Window plots (display.data_window)
+//   - Plots run independently of the table — hide the table, still see values
+//   - Nothing drawn on chart; pure side-panel output
+//
+// v1.8.1 changes:
+//   - Swing / Scalp toggle and % input placed on same inline row in settings
+//     so the 40 and 10 are visible next to the label (no tooltip needed)
+// ============================================================================
+
+indicator("Zen Trading Toolkit v1.8.1", shorttitle="Zen Toolkit 1.8.1",
+     overlay=true, max_lines_count=500, max_labels_count=500,
+     max_boxes_count=500)
+
+// ============================================================================
+// SHARED — INSTRUMENT PRESET + SESSION
+// ============================================================================
+
+grpSession = "SESSION"
+string instrument = input.string("ES", "Instrument",
+     options=["ES", "FDAX", "HSI", "Nikkei", "Custom"], group=grpSession,
+     tooltip="Selects RTH session + timezone automatically.\nES: 0830-1600 Chicago\nFDAX: 0900-1730 Berlin\nHSI: 0915-1630 Hong Kong\nNikkei: 0845-1550 Tokyo\nCustom: set your own")
+string custom_session = input.session("0830-1600", "Custom Session", group=grpSession,
+     tooltip="Only used when Instrument = Custom")
+string custom_tz = input.string("America/Chicago", "Custom Timezone", group=grpSession,
+     options=["America/Chicago", "America/New_York", "America/Los_Angeles", "America/Denver",
+              "Europe/Berlin", "Europe/London", "Europe/Paris", "Europe/Zurich",
+              "Asia/Hong_Kong", "Asia/Tokyo", "Asia/Singapore", "Asia/Shanghai",
+              "Australia/Sydney", "Pacific/Auckland"],
+     tooltip="Only used when Instrument = Custom")
+
+int lookback = input.int(8, "Lookback Period (days)", minval=1, maxval=50, group=grpSession,
+     tooltip="Rolling lookback for ABR/ADR. Used by all modules. 8 is the research default.")
+
+string rth_session = switch instrument
+    "ES"     => "0830-1600"
+    "FDAX"   => "0900-1730"
+    "HSI"    => "0915-1630"
+    "Nikkei" => "0845-1550"
+    => custom_session
+
+string rth_tz = switch instrument
+    "ES"     => "America/Chicago"
+    "FDAX"   => "Europe/Berlin"
+    "HSI"    => "Asia/Hong_Kong"
+    "Nikkei" => "Asia/Tokyo"
+    => custom_tz
+
+string session_display = switch instrument
+    "ES"     => "ES 0830-1600 Chicago"
+    "FDAX"   => "FDAX 0900-1730 Berlin"
+    "HSI"    => "HSI 0915-1630 Hong Kong"
+    "Nikkei" => "NK 0845-1550 Tokyo"
+    => "Custom"
+
+// ============================================================================
+// MODULE 1 INPUTS — ABR MEASURED MOVES
+// ============================================================================
+
+grpMM2 = "M1: Targets"
+mm_show05x  = input.bool(true,  "Show 0.5x ABR targets", group=grpMM2)
+mm_show1x   = input.bool(true,  "Show 1.0x ABR targets", group=grpMM2)
+mm_show15x  = input.bool(false, "Show 1.5x ABR targets", group=grpMM2)
+mm_show2x   = input.bool(false, "Show 2.0x ABR targets", group=grpMM2,
+     tooltip="2x hits ~1% of the time. Off by default to reduce clutter.")
+
+grpMM3 = "M1: Reference Lines"
+mm_showYClose = input.bool(false,  "Yesterday's RTH Close",  group=grpMM3)
+mm_showYHiLo  = input.bool(true, "Yesterday's RTH Hi / Lo", group=grpMM3)
+mm_showYdMM   = input.bool(true, "Yesterday's Range MM (1x from extremes)", group=grpMM3,
+     tooltip="Projects y.Hi + yRange up and y.Lo - yRange down. The original measured move from yesterday's range extremes.")
+
+grpMM4 = "M1: Display"
+mm_lineExt    = input.int(20, "Line Extension (bars)", minval=10, maxval=500, group=grpMM4)
+mm_lineWidth  = input.int(1,  "Line Width",            minval=1, maxval=4,    group=grpMM4)
+mm_showLabels = input.bool(true, "Show Labels",         group=grpMM4)
+mm_showTable  = input.bool(false, "Show Targets Table (debug)", group=grpMM4,
+     tooltip="The MM targets debug table. Independent of measured move lines.")
+mm_tableSize  = input.string("small", "Table Text Size",
+     options=["tiny", "small", "normal", "large"], group=grpMM4)
+mm_labelOff   = input.int(5,  "Label Offset (bars right)", minval=0, maxval=50, group=grpMM4)
+
+grpMM5 = "M1: Bull Colors"
+mm_colBull05 = input.color(color.new(#059669, 60), "Bull 0.5x", group=grpMM5)
+mm_colBull1  = input.color(color.new(#059669, 30), "Bull 1.0x", group=grpMM5)
+mm_colBull15 = input.color(color.new(#059669, 15), "Bull 1.5x", group=grpMM5)
+mm_colBull2  = input.color(color.new(#059669, 0),  "Bull 2.0x", group=grpMM5)
+
+grpMM6 = "M1: Bear Colors"
+mm_colBear05 = input.color(color.new(#DC2626, 60), "Bear 0.5x", group=grpMM6)
+mm_colBear1  = input.color(color.new(#DC2626, 30), "Bear 1.0x", group=grpMM6)
+mm_colBear15 = input.color(color.new(#DC2626, 15), "Bear 1.5x", group=grpMM6)
+mm_colBear2  = input.color(color.new(#DC2626, 0),  "Bear 2.0x", group=grpMM6)
+
+grpMM7 = "M1: Reference Colors"
+mm_colYClose = input.color(color.new(#F59E0B, 30), "Yesterday Close",    group=grpMM7)
+mm_colYHiLo  = input.color(color.new(color.gray, 50), "Yesterday Hi/Lo", group=grpMM7)
+mm_colYdMM   = input.color(color.new(color.teal, 0),  "Yesterday Range MM", group=grpMM7)
+
+// ============================================================================
+// MODULE 2 INPUTS — OPENING RANGE
+// ============================================================================
+
+grpOR1 = "M2: Box Settings"
+or_bars      = input.int(18, "Opening Range Bars", minval=2, maxval=100, group=grpOR1,
+     tooltip="Number of bars from day open. 18 on 5m = 90 minutes.")
+or_showBox   = input.bool(true,  "Show Box",       group=grpOR1)
+or_boxColor  = input.color(color.orange, "Box Color", group=grpOR1)
+or_boxTrans  = input.int(80, "Box Transparency", minval=0, maxval=100, group=grpOR1)
+or_showLabel = input.bool(false,  "Show Range Label", group=grpOR1)
+or_lblColor  = input.color(color.white, "Label Color", group=grpOR1)
+
+grpOR2 = "M2: Projections"
+or_projLen = input.int(40, "Projection Length (bars)", group=grpOR2)
+
+// v1.5: added 0.25x projection
+or_show025 = input.bool(false, "0.25x", inline="or0", group=grpOR2)
+or_col025  = input.color(color.new(color.yellow, 30),  "", inline="or0", group=grpOR2)
+or_show050 = input.bool(true,  "0.50x", inline="or1", group=grpOR2)
+or_col050  = input.color(color.new(color.teal, 30),   "", inline="or1", group=grpOR2)
+or_show075 = input.bool(false, "0.75x", inline="or2", group=grpOR2)
+or_col075  = input.color(color.new(color.blue, 30),   "", inline="or2", group=grpOR2)
+or_show100 = input.bool(true,  "1.00x", inline="or3", group=grpOR2)
+or_col100  = input.color(color.new(color.gray, 30),   "", inline="or3", group=grpOR2)
+or_show150 = input.bool(false, "1.50x", inline="or4", group=grpOR2)
+or_col150  = input.color(color.new(color.orange, 30), "", inline="or4", group=grpOR2)
+or_show200 = input.bool(false, "2.00x", inline="or5", group=grpOR2)
+or_col200  = input.color(color.new(color.red, 30),    "", inline="or5", group=grpOR2)
+or_showProjLbl = input.bool(false, "Show Target Labels", group=grpOR2)
+
+// ============================================================================
+// MODULE 3 INPUTS — VOLATILITY STATS TABLE
+// ============================================================================
+
+grpST = "M3: Stats Table"
+st_showTable = input.bool(true, "Show Stats Table", group=grpST)
+st_position  = input.string("Top Right", "Table Position",
+     options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group=grpST)
+bool st_showSession = input.bool(true, "Show Session Info", group=grpST)
+
+// v1.7: row toggles + Swing/Scalp % inputs
+// v1.8.1: put toggle + % on same inline row so the 40/10 are visible next to the label
+grpSTRows = "M3: Stats Table Rows"
+bool  st_showSwing = input.bool(true,  "Swing Row  (% of RTH ADR)", inline="swing", group=grpSTRows)
+float st_swingPct  = input.float(40.0, "",                          inline="swing", group=grpSTRows,
+     minval=1, maxval=100, step=5,
+     tooltip="Swing target = RTH ADR × this %. Default 40%.")
+bool  st_showScalp = input.bool(true,  "Scalp Row  (% of RTH ADR)", inline="scalp", group=grpSTRows)
+float st_scalpPct  = input.float(10.0, "",                          inline="scalp", group=grpSTRows,
+     minval=1, maxval=100, step=1,
+     tooltip="Scalp target = RTH ADR × this %. Default 10%.")
+
+grpSTCol = "M3: Stats Table Colours"
+st_colHdrRTH = input.color(color.blue,   "RTH Header BG",  group=grpSTCol)
+st_colHdrETH = input.color(color.purple, "ETH Header BG",  group=grpSTCol)
+st_colHdrTxt = input.color(color.white,  "Header Text",    group=grpSTCol)
+st_colLabel  = input.color(color.gray,   "Row Labels",     group=grpSTCol)
+st_colValue  = input.color(color.black,  "Values",         group=grpSTCol)
+
+// ============================================================================
+// SHARED SESSION DETECTION (timezone-aware)
+// ============================================================================
+
+bool in_session    = not na(time(timeframe.period, rth_session, rth_tz))
+bool session_start = in_session and not in_session[1]
+bool day_change    = ta.change(time("D")) != 0
+bool first_bar     = session_start or (day_change and in_session and not session_start)
+
+// ============================================================================
+// RTH OHLC TRACKING (always runs — feeds M1 + M3)
+// ============================================================================
+
+var float rthOpen  = na
+var float rthHigh  = na
+var float rthLow   = na
+var float rthClose = na
+
+var float yOpen  = na
+var float yHigh  = na
+var float yLow   = na
+var float yClose = na
+var float yRange = na
+
+if first_bar
+    yOpen  := rthOpen
+    yHigh  := rthHigh
+    yLow   := rthLow
+    yClose := rthClose
+    yRange := not na(rthHigh) and not na(rthLow) ? rthHigh - rthLow : na
+    rthOpen  := open
+    rthHigh  := high
+    rthLow   := low
+    rthClose := close
+else if in_session
+    rthHigh  := math.max(nz(rthHigh), high)
+    rthLow   := math.min(nz(rthLow), low)
+    rthClose := close
+
+// ============================================================================
+// ABR CALCULATION — rolling N daily RTH ranges (always runs)
+// ============================================================================
+
+var float[] dailyRanges = array.new_float(0)
+var float   currentABR  = na
+
+if first_bar and not na(yRange) and yRange > 0
+    array.push(dailyRanges, yRange)
+    if array.size(dailyRanges) > lookback + 5
+        array.shift(dailyRanges)
+
+if first_bar and array.size(dailyRanges) >= lookback
+    float sumR = 0.0
+    int startIdx = array.size(dailyRanges) - lookback
+    for i = startIdx to array.size(dailyRanges) - 1
+        sumR += array.get(dailyRanges, i)
+    currentABR := sumR / lookback
+else if first_bar and array.size(dailyRanges) > 0
+    float sumR = 0.0
+    for i = 0 to array.size(dailyRanges) - 1
+        sumR += array.get(dailyRanges, i)
+    currentABR := sumR / array.size(dailyRanges)
+
+// ============================================================================
+// MODULE 1 — TARGET CALCULATION
+// ============================================================================
+
+var float bull05 = na, var float bull1  = na
+var float bull15 = na, var float bull2  = na
+var float bear05 = na, var float bear1  = na
+var float bear15 = na, var float bear2  = na
+
+if first_bar and not na(yClose) and not na(currentABR)
+    bull05 := yClose + 0.5 * currentABR
+    bull1  := yClose + 1.0 * currentABR
+    bull15 := yClose + 1.5 * currentABR
+    bull2  := yClose + 2.0 * currentABR
+    bear05 := yClose - 0.5 * currentABR
+    bear1  := yClose - 1.0 * currentABR
+    bear15 := yClose - 1.5 * currentABR
+    bear2  := yClose - 2.0 * currentABR
+
+// ============================================================================
+// MODULE 1 — DRAWING
+// ============================================================================
+
+f_drawLevel(float _price, color _col, string _style, string _txt) =>
+    ln = line.new(bar_index, _price, bar_index + mm_lineExt, _price,
+         xloc.bar_index, color=_col,
+         style=_style == "solid" ? line.style_solid : _style == "dashed" ? line.style_dashed : line.style_dotted,
+         width=mm_lineWidth)
+    lb = mm_showLabels ? label.new(bar_index + mm_lineExt + mm_labelOff, _price,
+         text=_txt + " " + str.tostring(_price, format.mintick),
+         xloc=xloc.bar_index, style=label.style_none, textcolor=_col,
+         size=size.small) : na
+    [ln, lb]
+
+if first_bar and not na(yClose) and not na(currentABR)
+    if mm_show05x
+        f_drawLevel(bull05, mm_colBull05, "solid", "Bull 0.5x")
+        f_drawLevel(bear05, mm_colBear05, "solid", "Bear 0.5x")
+    if mm_show1x
+        f_drawLevel(bull1, mm_colBull1, "solid", "Bull 1.0x")
+        f_drawLevel(bear1, mm_colBear1, "solid", "Bear 1.0x")
+    if mm_show15x
+        f_drawLevel(bull15, mm_colBull15, "dashed", "Bull 1.5x")
+        f_drawLevel(bear15, mm_colBear15, "dashed", "Bear 1.5x")
+    if mm_show2x
+        f_drawLevel(bull2, mm_colBull2, "dashed", "Bull 2.0x")
+        f_drawLevel(bear2, mm_colBear2, "dashed", "Bear 2.0x")
+
+    if mm_showYClose
+        f_drawLevel(yClose, mm_colYClose, "dotted", "y.Close")
+    if mm_showYHiLo and not na(yHigh)
+        f_drawLevel(yHigh, mm_colYHiLo, "dotted", "y.Hi")
+        f_drawLevel(yLow,  mm_colYHiLo, "dotted", "y.Lo")
+    if mm_showYdMM and not na(yHigh) and not na(yLow)
+        f_drawLevel(yHigh + yRange, mm_colYdMM, "dotted", "yd MM up")
+        f_drawLevel(yLow  - yRange, mm_colYdMM, "dotted", "yd MM dn")
+
+// ============================================================================
+// MODULE 1 — TARGETS TABLE (debug, independently toggled)
+// ============================================================================
+
+if mm_showTable and barstate.islast and not na(currentABR)
+    sz = switch mm_tableSize
+        "tiny"   => size.tiny
+        "small"  => size.small
+        "normal" => size.normal
+        "large"  => size.large
+        => size.small
+
+    var table mmTbl = table.new(position.top_left, 2, 12,
+         bgcolor=color.new(#1a1a2e, 10), border_color=color.new(color.gray, 70),
+         border_width=1, frame_color=color.new(color.gray, 50), frame_width=1)
+
+    table.cell(mmTbl, 0, 0, "ABR MM Targets", text_color=color.white,
+         text_size=sz, bgcolor=color.new(#059669, 20), text_halign=text.align_left)
+    table.cell(mmTbl, 1, 0, "from y.Close", text_color=color.gray,
+         text_size=sz, bgcolor=color.new(#059669, 20), text_halign=text.align_right)
+
+    table.cell(mmTbl, 0, 1, "y.Close", text_color=mm_colYClose,
+         text_size=sz, text_halign=text.align_left)
+    table.cell(mmTbl, 1, 1, str.tostring(yClose, format.mintick), text_color=mm_colYClose,
+         text_size=sz, text_halign=text.align_right)
+
+    table.cell(mmTbl, 0, 2, "ABR (" + str.tostring(lookback) + "d)",
+         text_color=color.white, text_size=sz, text_halign=text.align_left)
+    table.cell(mmTbl, 1, 2, str.tostring(currentABR, "#.##"), text_color=color.white,
+         text_size=sz, text_halign=text.align_right)
+
+    table.cell(mmTbl, 0, 3, "y.Range", text_color=color.gray,
+         text_size=sz, text_halign=text.align_left)
+    table.cell(mmTbl, 1, 3, str.tostring(yRange, "#.##") + " (" +
+         str.tostring(not na(yRange) and currentABR > 0 ? yRange / currentABR : na, "#.##") + "x ABR)",
+         text_color=color.gray, text_size=sz, text_halign=text.align_right)
+
+    table.cell(mmTbl, 0, 4, "--- Bull ---", text_color=mm_colBull1,
+         text_size=sz, text_halign=text.align_left)
+    table.cell(mmTbl, 1, 4, "", text_size=sz)
+
+    int row = 5
+    if mm_show05x
+        table.cell(mmTbl, 0, row, "Bull 0.5x", text_color=mm_colBull05, text_size=sz, text_halign=text.align_left)
+        table.cell(mmTbl, 1, row, str.tostring(bull05, format.mintick), text_color=mm_colBull05, text_size=sz, text_halign=text.align_right)
+        row += 1
+    if mm_show1x
+        table.cell(mmTbl, 0, row, "Bull 1.0x", text_color=mm_colBull1, text_size=sz, text_halign=text.align_left)
+        table.cell(mmTbl, 1, row, str.tostring(bull1, format.mintick), text_color=mm_colBull1, text_size=sz, text_halign=text.align_right)
+        row += 1
+    if mm_show15x
+        table.cell(mmTbl, 0, row, "Bull 1.5x", text_color=mm_colBull15, text_size=sz, text_halign=text.align_left)
+        table.cell(mmTbl, 1, row, str.tostring(bull15, format.mintick), text_color=mm_colBull15, text_size=sz, text_halign=text.align_right)
+        row += 1
+    if mm_show2x
+        table.cell(mmTbl, 0, row, "Bull 2.0x", text_color=mm_colBull2, text_size=sz, text_halign=text.align_left)
+        table.cell(mmTbl, 1, row, str.tostring(bull2, format.mintick), text_color=mm_colBull2, text_size=sz, text_halign=text.align_right)
+        row += 1
+
+    table.cell(mmTbl, 0, row, "--- Bear ---", text_color=mm_colBear1,
+         text_size=sz, text_halign=text.align_left)
+    table.cell(mmTbl, 1, row, "", text_size=sz)
+    row += 1
+
+    if mm_show05x
+        table.cell(mmTbl, 0, row, "Bear 0.5x", text_color=mm_colBear05, text_size=sz, text_halign=text.align_left)
+        table.cell(mmTbl, 1, row, str.tostring(bear05, format.mintick), text_color=mm_colBear05, text_size=sz, text_halign=text.align_right)
+        row += 1
+    if mm_show1x
+        table.cell(mmTbl, 0, row, "Bear 1.0x", text_color=mm_colBear1, text_size=sz, text_halign=text.align_left)
+        table.cell(mmTbl, 1, row, str.tostring(bear1, format.mintick), text_color=mm_colBear1, text_size=sz, text_halign=text.align_right)
+        row += 1
+    if mm_show15x
+        table.cell(mmTbl, 0, row, "Bear 1.5x", text_color=mm_colBear15, text_size=sz, text_halign=text.align_left)
+        table.cell(mmTbl, 1, row, str.tostring(bear15, format.mintick), text_color=mm_colBear15, text_size=sz, text_halign=text.align_right)
+        row += 1
+    if mm_show2x
+        table.cell(mmTbl, 0, row, "Bear 2.0x", text_color=mm_colBear2, text_size=sz, text_halign=text.align_left)
+        table.cell(mmTbl, 1, row, str.tostring(bear2, format.mintick), text_color=mm_colBear2, text_size=sz, text_halign=text.align_right)
+
+// ============================================================================
+// MODULE 2 — OPENING RANGE
+// ============================================================================
+
+or_new_day = ta.change(time("D")) != 0
+or_bars_since = ta.barssince(or_new_day)
+
+var float or_hi = na
+var float or_lo = na
+var float or_lockedHigh = na
+var float or_lockedLow  = na
+
+if or_bars_since == 0
+    or_hi := high
+    or_lo := low
+    or_lockedHigh := na
+    or_lockedLow  := na
+else if or_bars_since < or_bars
+    or_hi := math.max(or_hi, high)
+    or_lo := math.min(or_lo, low)
+
+if or_bars_since == or_bars - 1
+    or_lockedHigh := or_hi
+    or_lockedLow  := or_lo
+
+or_dailyHigh  = request.security(syminfo.tickerid, "D", high)
+or_dailyLow   = request.security(syminfo.tickerid, "D", low)
+or_dailyRange = or_dailyHigh - or_dailyLow
+or_adr        = ta.sma(or_dailyRange, lookback)
+or_range18    = or_lockedHigh - or_lockedLow
+or_rangePct   = or_adr != 0 ? (or_range18 / or_adr) * 100 : na
+
+or_drawProj(bool show, float mult, color col, string tag, int x1, int x2, float rHi, float rLo, float rng) =>
+    if show
+        float upTgt = rHi + mult * rng
+        float dnTgt = rLo - mult * rng
+        line.new(x1, upTgt, x2, upTgt, color=col, style=line.style_dashed, width=1)
+        line.new(x1, dnTgt, x2, dnTgt, color=col, style=line.style_dashed, width=1)
+        if or_showProjLbl
+            label.new(x2, upTgt, tag, style=label.style_label_left, textcolor=col, size=size.small, color=color.new(color.black, 100))
+            label.new(x2, dnTgt, tag, style=label.style_label_left, textcolor=col, size=size.small, color=color.new(color.black, 100))
+
+if or_bars_since == or_bars - 1
+    if or_showBox
+        box.new(bar_index - (or_bars - 1), or_lockedHigh, bar_index, or_lockedLow,
+             border_color=or_boxColor,
+             bgcolor=color.new(or_boxColor, or_boxTrans))
+
+    if or_showLabel
+        label.new(bar_index, or_lockedHigh,
+             str.tostring(or_range18, format.mintick) +
+             "\nD: " + str.tostring(or_dailyRange, format.mintick) +
+             "\n%: " + str.tostring(or_rangePct, "#.##") + "%",
+             style=label.style_label_down, textcolor=or_lblColor, size=size.normal)
+
+    int x1 = bar_index + 1
+    int x2 = bar_index + or_projLen
+    // v1.5: 0.25x added first
+    or_drawProj(or_show025, 0.25, or_col025, "0.25x", x1, x2, or_lockedHigh, or_lockedLow, or_range18)
+    or_drawProj(or_show050, 0.50, or_col050, "0.5x",  x1, x2, or_lockedHigh, or_lockedLow, or_range18)
+    or_drawProj(or_show075, 0.75, or_col075, "0.75x", x1, x2, or_lockedHigh, or_lockedLow, or_range18)
+    or_drawProj(or_show100, 1.00, or_col100, "1.0x",  x1, x2, or_lockedHigh, or_lockedLow, or_range18)
+    or_drawProj(or_show150, 1.50, or_col150, "1.5x",  x1, x2, or_lockedHigh, or_lockedLow, or_range18)
+    or_drawProj(or_show200, 2.00, or_col200, "2.0x",  x1, x2, or_lockedHigh, or_lockedLow, or_range18)
+
+// ============================================================================
+// MODULE 3 — VOLATILITY STATS TABLE
+// ============================================================================
+
+// --- Chart-timeframe ABR ---
+float st_bar_range = high - low
+float st_abr_raw   = math.sum(st_bar_range, lookback) / lookback
+
+var float st_abr = na
+if barstate.isconfirmed
+    st_abr := st_abr_raw
+
+// --- RTH ADR ---
+var float st_ses_hi = na
+var float st_ses_lo = na
+var array<float> st_completed_ranges = array.new_float(0)
+
+if first_bar
+    if not na(st_ses_hi) and not na(st_ses_lo)
+        array.push(st_completed_ranges, st_ses_hi - st_ses_lo)
+        if array.size(st_completed_ranges) > lookback
+            array.shift(st_completed_ranges)
+    st_ses_hi := high
+    st_ses_lo := low
+else if in_session
+    st_ses_hi := math.max(nz(st_ses_hi, high), high)
+    st_ses_lo := math.min(nz(st_ses_lo, low), low)
+
+float st_rth_adr   = array.size(st_completed_ranges) > 0 ? array.avg(st_completed_ranges) : na
+float st_rth_today = not na(st_ses_hi) and not na(st_ses_lo) ? st_ses_hi - st_ses_lo : na
+float st_rth_pct   = not na(st_rth_adr) and st_rth_adr > 0 and not na(st_rth_today) ? (st_rth_today / st_rth_adr) * 100.0 : 0.0
+
+// --- ETH ADR ---
+string st_eth_ticker = ticker.modify(syminfo.tickerid, session=session.extended)
+
+float st_eth_d_hi = request.security(st_eth_ticker, 'D', high)
+float st_eth_d_lo = request.security(st_eth_ticker, 'D', low)
+
+st_eth_adr_calc() =>
+    float s = 0.0
+    for i = 1 to lookback
+        s += (high[i] - low[i])
+    s / lookback
+
+float st_eth_adr   = request.security(st_eth_ticker, 'D', st_eth_adr_calc())
+float st_eth_today = st_eth_d_hi - st_eth_d_lo
+float st_eth_pct   = not na(st_eth_adr) and st_eth_adr > 0 ? (st_eth_today / st_eth_adr) * 100.0 : 0.0
+
+// --- % ADR colour ---
+// v1.5: >= 80% = hard red; otherwise use configurable value colour
+color st_rth_pct_col = st_rth_pct >= 80 ? color.red : st_colValue
+color st_eth_pct_col = st_eth_pct >= 80 ? color.red : st_colValue
+
+// --- OR % ADR (for stats table row) ---
+float st_or_pct = not na(or_lockedHigh) and not na(or_lockedLow) and not na(st_rth_adr) and st_rth_adr > 0 ? ((or_lockedHigh - or_lockedLow) / st_rth_adr) * 100.0 : na
+
+// --- v1.7: Swing / Scalp absolute values (from RTH ADR) ---
+float st_swing = not na(st_rth_adr) ? st_rth_adr * (st_swingPct / 100.0) : na
+float st_scalp = not na(st_rth_adr) ? st_rth_adr * (st_scalpPct / 100.0) : na
+
+// --- Table position ---
+stPos = switch st_position
+    "Top Left"     => position.top_left
+    "Top Right"    => position.top_right
+    "Bottom Left"  => position.bottom_left
+    "Bottom Right" => position.bottom_right
+    => position.top_right
+
+// --- Draw Stats Table ---
+// v1.7: table expanded to 10 rows to accommodate Swing + Scalp rows
+if st_showTable and (barstate.islastconfirmedhistory or barstate.isrealtime)
+    var table stTbl = table.new(stPos, 3, 10, border_width=1)
+
+    int row = 0
+
+    if st_showSession
+        table.cell(stTbl, 0, row, session_display, text_color=color.gray, text_size=size.tiny)
+        table.cell(stTbl, 1, row, '', text_size=size.tiny)
+        table.cell(stTbl, 2, row, '', text_size=size.tiny)
+        table.merge_cells(stTbl, 0, row, 2, row)
+        row += 1
+
+    // Headers
+    table.cell(stTbl, 0, row, '',    text_size=size.small)
+    table.cell(stTbl, 1, row, 'RTH', text_color=st_colHdrTxt, text_size=size.small,
+         bgcolor=color.new(st_colHdrRTH, 70))
+    table.cell(stTbl, 2, row, 'ETH', text_color=st_colHdrTxt, text_size=size.small,
+         bgcolor=color.new(st_colHdrETH, 70))
+    row += 1
+
+    // ABR
+    table.cell(stTbl, 0, row, 'ABR (' + str.tostring(lookback) + ')', text_color=st_colLabel, text_size=size.small)
+    table.cell(stTbl, 1, row, str.tostring(st_abr, format.mintick),    text_color=st_colValue, text_size=size.small)
+    table.cell(stTbl, 2, row, '',                                       text_color=st_colLabel, text_size=size.small)
+    row += 1
+
+    // ADR
+    table.cell(stTbl, 0, row, 'ADR (' + str.tostring(lookback) + ')',             text_color=st_colLabel, text_size=size.small)
+    table.cell(stTbl, 1, row, str.tostring(math.round(nz(st_rth_adr)), '#'),      text_color=st_colValue, text_size=size.small)
+    table.cell(stTbl, 2, row, str.tostring(math.round(nz(st_eth_adr)), '#'),      text_color=st_colValue, text_size=size.small)
+    row += 1
+
+    // Today
+    table.cell(stTbl, 0, row, 'Today',                                            text_color=st_colLabel, text_size=size.small)
+    table.cell(stTbl, 1, row, str.tostring(math.round(nz(st_rth_today)), '#'),    text_color=st_colValue, text_size=size.small)
+    table.cell(stTbl, 2, row, str.tostring(math.round(nz(st_eth_today)), '#'),    text_color=st_colValue, text_size=size.small)
+    row += 1
+
+    // % ADR — v1.5: red when >= 80%
+    table.cell(stTbl, 0, row, '% ADR',                                            text_color=st_colLabel,    text_size=size.small)
+    table.cell(stTbl, 1, row, str.tostring(math.round(st_rth_pct), '#') + '%',    text_color=st_rth_pct_col, text_size=size.small)
+    table.cell(stTbl, 2, row, str.tostring(math.round(st_eth_pct), '#') + '%',    text_color=st_eth_pct_col, text_size=size.small)
+    row += 1
+
+    // OR % — v1.5: RTH column only, blank until OR locked
+    table.cell(stTbl, 0, row, 'OR %',                                             text_color=st_colLabel, text_size=size.small)
+    table.cell(stTbl, 1, row, not na(st_or_pct) ? str.tostring(math.round(st_or_pct), '#') + '%' : '-', text_color=st_colValue, text_size=size.small)
+    table.cell(stTbl, 2, row, '-',                                                text_color=st_colLabel, text_size=size.small)
+    row += 1
+
+    // v1.7: Swing — RTH ADR * swing% (RTH only)
+    if st_showSwing
+        table.cell(stTbl, 0, row, 'Swing ' + str.tostring(math.round(st_swingPct), '#') + '%', text_color=st_colLabel, text_size=size.small)
+        table.cell(stTbl, 1, row, not na(st_swing) ? str.tostring(math.round(st_swing), '#') : '-', text_color=st_colValue, text_size=size.small)
+        table.cell(stTbl, 2, row, '-',                                            text_color=st_colLabel, text_size=size.small)
+        row += 1
+
+    // v1.7: Scalp — RTH ADR * scalp% (RTH only)
+    if st_showScalp
+        table.cell(stTbl, 0, row, 'Scalp ' + str.tostring(math.round(st_scalpPct), '#') + '%', text_color=st_colLabel, text_size=size.small)
+        table.cell(stTbl, 1, row, not na(st_scalp) ? str.tostring(math.round(st_scalp), '#') : '-', text_color=st_colValue, text_size=size.small)
+        table.cell(stTbl, 2, row, '-',                                            text_color=st_colLabel, text_size=size.small)
+        row += 1
+
+// ============================================================================
+// MODULE 3 — DATA WINDOW PLOTS (v1.8)
+// ============================================================================
+// These mirror the stats table values but live in the Data Window pane.
+// They run independently of st_showTable — hide the table and these still show.
+// display=display.data_window means no chart rendering, no pane, no lines.
+
+plot(st_abr,       title="ABR",        display=display.data_window)
+plot(st_rth_adr,   title="ADR RTH",    display=display.data_window)
+plot(st_eth_adr,   title="ADR ETH",    display=display.data_window)
+plot(st_rth_today, title="Today RTH",  display=display.data_window)
+plot(st_eth_today, title="Today ETH",  display=display.data_window)
+plot(st_rth_pct,   title="% ADR RTH",  display=display.data_window)
+plot(st_eth_pct,   title="% ADR ETH",  display=display.data_window)
+plot(st_or_pct,    title="OR %",       display=display.data_window)
+plot(st_swing,     title="Swing",      display=display.data_window)
+plot(st_scalp,     title="Scalp",      display=display.data_window)
+
+// ============================================================================
+// END
+// ============================================================================
