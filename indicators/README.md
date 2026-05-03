@@ -32,16 +32,24 @@ A TradingView Pine Script v5 indicator that plots the all-time high and a config
 
 **Read the write-up:** [Cash Indices and Higher Time Frame Pullbacks](https://zentradingtech.com/2025/12/19/cash-indices-and-higher-time-frame-pullbacks/)
 
+### [Zen Trader Pro RR — R/R Ruler (NinjaTrader 8)](./Zen-Trader-Pro-RR-NT)
+
+A NinjaTrader 8 risk/reward ruler with three click modes: middle-click measures R-multiples from the close (Buy/Sell the Close), Shift+middle-click measures R-multiples from a breakout entry beyond the bar's High or Low (Buy Stop / Sell Stop), and Ctrl+middle-click projects fixed tick distances for quick measured move checks. Direction is automatic — reads bar colour. All three modes can coexist on the same bar simultaneously.
+
 ---
 
 ## How to use
 
-Each indicator is provided as a `.txt` file containing Pine Script source. To install:
+Indicators are provided either as `.txt` files containing Pine Script source (TradingView) or as `.cs` files (NinjaTrader 8). See each indicator's own README for platform-specific install instructions, inputs, and configuration.
 
+**TradingView (Pine Script):**
 1. Open the indicator's `.txt` file on GitHub and copy the entire contents
 2. In TradingView, open the **Pine Editor**, paste the code into a new script
 3. Save and add to chart
 
-See each indicator's own README for inputs, configuration, and reading guidance.
+**NinjaTrader 8:**
+1. Download the `.cs` file
+2. Copy it into `...\Documents\NinjaTrader 8\bin\Custom\Indicators\`
+3. Open NT8, go to **Tools → Edit NinjaScript → Indicators**, find the file and compile
 
 ---
