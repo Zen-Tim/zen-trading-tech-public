@@ -1,0 +1,232 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Zen_Tim_Trades
+// Zen_Z_Bars v1.1 · 20260608
+
+//@version=5
+indicator("Zen_Z_Bars_V1" , overlay = true, max_lines_count = 500, max_labels_count = 200)
+
+//Notes
+//28 Aug 2023 removed condition for excluding OB to review
+//08 Jun 2026 v1.1 - added per-tier On/Off toggles for z_bar 1-4 (group "Z-Bar Tiers")
+
+
+i_bullIBSfactor = input.int(69, "Bull IBS Threshold", minval = 51, maxval = 99)
+I_bearIBSfactor = input.int(31, "Bear INS Threshold", minval = 1, maxval = 49)
+BodyRangeThreshold  = input(title = "Body Range Limit", defval = 45)
+f_Bar_range_multiple_factor_1  = input.float(title = "Bar Range Multiple 1", defval = 1.1)
+f_Bar_range_multiple_factor_2  = input.float(title = "Bar Range Multiple 1.5", defval = 1.5)
+f_Bar_range_multiple_factor_3  = input.float(title = "Bar Range Multiple 2", defval = 2)
+f_Bar_range_multiple_factor_4  = input.float(title = "Bar Range Multiple 3", defval = 3)
+z_min_bar_size = input.float(title = "Bar Range Minimum", defval = 5)
+
+bool showmidpoint = input.string("Off", "Show Midpoint", options = ["On", "Off"]) == "On"
+bool plotBOsOn = input.string("On", "Show BOs ?", options = ["On", "Off"]) == "On"
+bool plotIBS = input.string("On", "Show IBS ?", options = ["On", "Off"]) == "On"
+bool plotIBSshapes = input.string("On", "Show IBS Shapes ?", options = ["On", "Off"]) == "On"
+bool plotRevOn = input.string("On", "Show Reversals", options = ["On", "Off"]) == "On"
+bool plotOBs = input.string("On", "Show OBs", options = ["On", "Off"]) == "On"
+bool plotCXtargets = input.string("On", "Show CX targets", options = ["On", "Off"]) == "On"
+bool plotBOFTlabels = input.string("On", "Show BOFT labels", options = ["On", "Off"]) == "On"
+bool plotKNTGTS = input.string("On", "Show Signal Line", options = ["On", "Off"]) == "On"
+bool plotCXtextlines = input.string("On", "Show CX test Lines", options = ["On", "Off"]) == "On"
+bool plotlabelABRmultiple = input.string("Off", "Show ABR labels", options = ["On", "Off"]) == "On"
+
+//Z-Bar tier visibility toggles (v1.1)
+bool show_z1 = input.string("On", "Show Tier 1 (1.1x)", options = ["On", "Off"], group = "Z-Bar Tiers") == "On"
+bool show_z2 = input.string("On", "Show Tier 2 (1.5x)", options = ["On", "Off"], group = "Z-Bar Tiers") == "On"
+bool show_z3 = input.string("On", "Show Tier 3 (2x)",   options = ["On", "Off"], group = "Z-Bar Tiers") == "On"
+bool show_z4 = input.string("On", "Show Tier 4 (3x)",   options = ["On", "Off"], group = "Z-Bar Tiers") == "On"
+
+
+
+//What is current bar
+
+isUp = close > open
+isDown = close < open
+
+isBullBO = close > close[1] and low >= low[1]
+isBullBO_high = high > high[1] and low >=low[1]
+isBullBO_Cl_over_high = close > high[1] and low >=low[1]
+
+isBearBO = close < close[1] and high <= high[1]
+isBearBO_low = low < low[1] and high <= high[1]
+isBearBO_cl_below_low = close < low[1] and high <= high[1]
+
+isOutside = high >= high[1] and low <= low[1]
+isOutsideUp = high >= high[1] and low <= low[1] and isUp
+isOutsideDown = high >= high[1] and low <= low[1] and isDown
+isInside = high <= high[1] and low >= low[1]
+
+// What is Prior Bar
+priorbarisInside = high[1] <= high[2] and low[1] >= low[2]
+priorbarisbull = close[1] > open[1]
+priorbarisbear = close [1] < open[1]
+
+// Calc AMA Climax Factor
+
+candleRangeCurrenBar = high - low
+candleRangePriorBar = high[1] - low[1]
+rangeDiffPriorBar =candleRangeCurrenBar - candleRangePriorBar
+climaxFactor = rangeDiffPriorBar / candleRangePriorBar
+
+isBullBar = close - open > 0
+isBearBar = close - open < 0
+priorBullBar = close[1] > open[1]
+priorBearBar = open[1] > close[1]
+
+amaCXFInput  = input(title = "AMA Climax Factor", defval = 1.8)
+
+bool plotAMACXFOn = input.string("On", "Show AMA CXF", options = ["On", "Off"]) == "On"
+bool plotClimaxColourOn = input.string("On", "Show CX Colour", options = ["On", "Off"]) == "On"
+bool plotClimaxShapeOn = input.string("On", "Show CX Shapes", options = ["On", "Off"]) == "On"
+
+//Range stuff
+
+//Check current timeframe
+is_daily = timeframe.isdaily
+is_weekly = timeframe.isweekly
+is_monthly = timeframe.ismonthly
+
+//Set the number of bars to ignore based on the timeframe
+y = input.int(1, "Number of Bars to Ignore at Start of Day")
+x = is_daily or is_weekly or is_monthly ? 0 : y
+
+//Your existing logic
+new_day = dayofweek != dayofweek[1]
+bars_since_new_day = ta.barssince(new_day)
+ignore_signals = bars_since_new_day < x
+
+//Candle Range
+
+candleRangeCurrentBar = math.abs(high - low)
+half_range = math.abs(candleRangeCurrentBar/2)
+//candleRangePriorBar = math.abs(high[1] - low[1])
+diff_priorbar = math.abs(candleRangeCurrentBar - candleRangePriorBar)
+
+//Avg Bar Range Lookback
+
+lookbackPeriod = input(8, "Lookback Period")
+
+averageBarRange = math.sum(candleRangeCurrentBar, lookbackPeriod) / lookbackPeriod
+
+//Tail Range
+toptailrangebull = math.abs(high-close)
+bottomtailrangebull = math.abs(open-low)
+bodyrangebull = math.abs(close-open)
+trendfactorbull = bodyrangebull / candleRangeCurrentBar
+
+toptailrangebear = math.abs(high-open)
+bottomtailrangebear = math.abs(close-low)
+bodyrangebear = math.abs(open-close)
+trendfactorbear = bodyrangebear / candleRangeCurrentBar
+
+//barrange
+
+bull_range = math.abs(close-low)
+bear_range = math.abs(high-close)
+
+bar_range = math.abs(high - low)
+twobar_range = 2*bar_range
+
+isbull = close > open
+isbear = close < open
+body_size = isbull? math.abs(close-open) : isbear ? math.abs(open-close) : na
+bodyoverrange = body_size / bar_range
+
+toptail = isbull? high - close : isbear? high - open : na
+bottomtail = isbull? open - low : isbear? close - low : na
+toptailoverbarrange = toptail / bar_range
+bottomtailoverbarrange = bottomtail / bar_range
+bigenoughbody = bodyoverrange >= (BodyRangeThreshold / 100)
+
+
+//IBS
+ibsBullThreshold  = input(title = "IBS Bull", defval = 31)
+ibsBearThreshold  = input(title = "IBS Bear", defval = 69)
+
+isPerfectdoji = close == open
+
+iBS = ((close - low) / (high - low)) * 100
+
+hiddenBull = isBearBar and iBS > ibsBearThreshold 
+hiddenBear = isBullBar and iBS < ibsBullThreshold
+
+ibsONBULL = hiddenBull and plotIBS == true
+ibsONBEAR = hiddenBear and plotIBS == true
+
+showIBSshapesBull = ibsONBULL and plotIBSshapes == true
+showIBSshapesBear = ibsONBEAR and plotIBSshapes == true
+
+//IBS qualifier
+
+bullclose_ok_ibs = isUp and iBS > i_bullIBSfactor
+bearclose_ok_ibs = isDown and iBS < I_bearIBSfactor
+
+//Outside Bar Classification
+
+hhdist = high - high[1]
+lldist = low[1] - low
+obBullBO = hhdist >= lldist and isOutside
+obBearBO = lldist >= hhdist and isOutside 
+
+plotobBULLBO = obBullBO and plotOBs == true
+plotobBEARBO = obBearBO and plotOBs == true
+
+
+//Reversals
+
+bearREV = high > high[1] and close < close[1] and not isOutside
+bearRevon = bearREV and plotRevOn == true
+
+bullREV = low < low[1] and close > close [1] and not isOutside
+bullRevon = bullREV and plotRevOn == true
+
+// colour BOs and CXs
+
+cleanbullbo = high > high[1] and close > close[1]
+cleanbearbo = low < low[1] and close < close[1]
+
+
+istruebullbo = cleanbullbo and not isOutside and not isInside
+plotbullBO = istruebullbo and plotBOsOn == true
+istruebearbo = cleanbearbo and not isOutside and not isInside
+plotbearBO = istruebearbo and plotBOsOn == true
+
+
+
+//Moving Average of range
+
+length = 8
+bodyRange = math.abs(close - open)
+averageBodyRange = ta.sma(bodyRange, length)
+z_multiple = bar_range / averageBarRange
+bigenoughbar = bar_range >= z_min_bar_size
+
+z_bar_1 = show_z1 and bigenoughbody and bigenoughbar and z_multiple > f_Bar_range_multiple_factor_1
+z_bar_2 = show_z2 and bigenoughbody and bigenoughbar and z_multiple >= f_Bar_range_multiple_factor_2
+z_bar_3 = show_z3 and bigenoughbody and bigenoughbar and z_multiple >= f_Bar_range_multiple_factor_3
+z_bar_4 = show_z4 and bigenoughbody and bigenoughbar and z_multiple >= f_Bar_range_multiple_factor_4
+
+barcolor(z_bar_4? color.lime : z_bar_3? color.rgb(2, 217, 255) : z_bar_2? color.rgb(255, 2, 200) : z_bar_1? color.purple : na)
+
+midpoint_dist = (high - low)/2
+midpoint = high - midpoint_dist
+
+if z_bar_1 or z_bar_2 or z_bar_3 or z_bar_4
+    line.new(x1 = bar_index, y1 = midpoint, x2 = bar_index + 2, y2 = midpoint, color = color.purple, width = 1)
+//
+
+zbar_group = z_bar_1 or z_bar_2 or z_bar_3 or z_bar_4
+zbar_group_bull = zbar_group and isbull
+zbar_bull_ft = zbar_group_bull[1] and isbull
+
+zbar_group_bear = zbar_group and isbear
+zbar_bear_ft = zbar_group_bear[1] and isbear
+
+plotshape(zbar_bull_ft, style=shape.arrowup, color=color.blue,location=location.belowbar)
+plotshape(zbar_bear_ft, style=shape.arrowdown, color=color.red,location=location.abovebar)
+
+// Version History
+// Version | Date     | Changes
+// v1.0    | 20230828 | Base indicator; removed OB exclusion condition
+// v1.1    | 20260608 | Added per-tier On/Off toggles (show_z1-4) gating z_bar_1-4

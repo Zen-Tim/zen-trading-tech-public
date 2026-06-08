@@ -39,6 +39,10 @@ A TradingView Pine Script v6 indicator that projects 0.5x and 1x ABR levels abov
 
 A NinjaTrader 8 risk/reward ruler with three click modes: middle-click measures R-multiples from the close (Buy/Sell the Close), Shift+middle-click measures R-multiples from a breakout entry beyond the bar's High or Low (Buy Stop / Sell Stop), and Ctrl+middle-click projects fixed tick distances for quick measured move checks. Direction is automatic — reads bar colour. All three modes can coexist on the same bar simultaneously.
 
+### [Zen Z Bars](./Zen-Z-Bars)
+
+A TradingView Pine Script v5 indicator that flags Z Bars — bars whose range is a large multiple of the 8-bar ABR — and colour-codes them across four threshold tiers (1.1x, 1.5x, 2x, 3x). Draws a midpoint reference line on each Z Bar and an arrow on the following bar when the move continues in the same direction (follow-through). Each tier has an independent On/Off toggle, so individual size bands can be isolated or hidden.
+
 ---
 
 ## How to use
