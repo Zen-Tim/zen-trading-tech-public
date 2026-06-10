@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ES Weekly Consecutive Bar Streaks v1.2 · 20260610</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAFAF8;
+  --surface: #FFFFFF;
+  --surface-alt: #F5F4F0;
+  --border: #E8E6E1;
+  --border-strong: #D4D1C9;
+  --text-primary: #1A1A18;
+  --text-secondary: #6B6964;
+  --text-muted: #9C9890;
+  --accent: #2563EB;
+  --accent-light: #EFF6FF;
+  --green: #16A34A;
+  --green-light: #F0FDF4;
+  --green-bg: #DCFCE7;
+  --red: #DC2626;
+  --red-light: #FEF2F2;
+  --red-bg: #FEE2E2;
+  --amber: #D97706;
+  --amber-light: #FFFBEB;
+  --amber-bg: #FEF3C7;
+  --purple: #7C3AED;
+  --purple-light: #F5F3FF;
+  --purple-bg: #EDE9FE;
+  --slate: #64748B;
+  --slate-bg: #F1F5F9;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  padding: 48px 32px;
+}
+.page { max-width: 1200px; margin: 0 auto; }
+
+/* Header */
+.report-header { margin-bottom: 48px; }
+.header-tag {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+.report-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.report-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.meta-row span { margin-right: 0; }
+.meta-divider { margin: 0 10px; color: var(--border-strong); }
+
+/* Section */
+.section { margin-bottom: 48px; }
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.section-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  border-left: 3px solid var(--border-strong);
+  transition: box-shadow 0.15s;
+}
+.kpi-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.kpi-card.green { border-left-color: var(--green); }
+.kpi-card.red { border-left-color: var(--red); }
+.kpi-card.accent { border-left-color: var(--accent); }
+.kpi-card.amber { border-left-color: var(--amber); }
+.kpi-card.slate { border-left-color: var(--slate); }
+.kpi-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.kpi-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.kpi-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Tables */
+.table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.table-header {
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--surface);
+}
+.table-header.green { background: var(--green); }
+.table-header.red { background: var(--red); }
+.table-header.accent { background: var(--accent); }
+.table-header.slate { background: var(--slate); }
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: var(--surface-alt); }
+thead th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+thead th.right { text-align: right; }
+tbody tr { border-bottom: 1px solid var(--border); background: var(--surface); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(0,0,0,0.015); }
+tbody td {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+tbody td.mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+}
+tbody td.right { text-align: right; }
+tbody td.center { text-align: center; }
+
+/* Pills */
+.pill {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.pill.green { background: var(--green-bg); color: var(--green); }
+.pill.red { background: var(--red-bg); color: var(--red); }
+.pill.amber { background: var(--amber-bg); color: var(--amber); }
+.pill.slate { background: var(--slate-bg); color: var(--slate); }
+.pill.blue { background: var(--accent-light); color: var(--accent); }
+
+/* Note boxes */
+.note-box {
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 13px;
+  margin-top: 12px;
+  line-height: 1.6;
+}
+.note-box.amber { background: var(--amber-light); border: 1px solid #FDE68A; color: #92400E; }
+.note-box.blue { background: var(--accent-light); border: 1px solid #BFDBFE; color: #1E40AF; }
+.note-box.green { background: var(--green-light); border: 1px solid #BBF7D0; color: #14532D; }
+
+/* Insight cards */
+.insight-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+.insight-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  border-left: 3px solid var(--border-strong);
+}
+.insight-card.green { border-left-color: var(--green); }
+.insight-card.red { border-left-color: var(--red); }
+.insight-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.insight-card-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Split grid */
+.split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+/* Version history */
+.version-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+/* Footer */
+.report-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 48px;
+}
+.report-footer span {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  body { padding: 24px 16px; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .split-grid { grid-template-columns: 1fr; }
+  .insight-grid { grid-template-columns: 1fr; }
+  .meta-row { flex-direction: column; gap: 2px; }
+  .meta-divider { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="report-header">
+    <div class="header-tag">◆ Quantitative Research</div>
+    <h1>ES Weekly Consecutive Bar Streaks</h1>
+    <p class="report-subtitle">After N consecutive bull or bear weeks, what is the probability the next week continues or reverses?</p>
+    <div class="meta-row">
+      <span>CME Mini ES (ES1!)</span>
+      <span class="meta-divider">·</span>
+      <span>Weekly bars</span>
+      <span class="meta-divider">·</span>
+      <span>1997-09-08 to 2026-06-08</span>
+      <span class="meta-divider">·</span>
+      <span>n = 1,501</span>
+      <span class="meta-divider">·</span>
+      <span>v1.2</span>
+      <span class="meta-divider">·</span>
+      <span>20260610</span>
+    </div>
+  </div>
+
+  <!-- Data Universe -->
+  <div class="section">
+    <div class="section-title">Data Universe</div>
+    <div class="section-desc">What was tested, on what data, and how the bar classification works.</div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card accent">
+        <div class="kpi-label">Total Bars</div>
+        <div class="kpi-value">1,501</div>
+        <div class="kpi-sub">Weekly bars</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Bull Bars</div>
+        <div class="kpi-value">841</div>
+        <div class="kpi-sub">56.1% of total</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Bear Bars</div>
+        <div class="kpi-value">655</div>
+        <div class="kpi-sub">43.6% of total</div>
+      </div>
+      <div class="kpi-card slate">
+        <div class="kpi-label">Doji Bars</div>
+        <div class="kpi-value">5</div>
+        <div class="kpi-sub">0.3% — excluded</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Instrument</td><td class="mono">CME E-mini S&P 500 (ES1!), weekly bars</td></tr>
+          <tr><td>Source</td><td>TradingView export with pre-computed Bar Direction and Consecutive Bar columns</td></tr>
+          <tr><td>Date range</td><td class="mono">1997-09-08 to 2026-06-08</td></tr>
+          <tr><td>Bar Direction</td><td><span class="mono">+1</span> if close &gt; open &nbsp;·&nbsp; <span class="mono">-1</span> if close &lt; open &nbsp;·&nbsp; <span class="mono">0</span> if close == open (doji)</td></tr>
+          <tr><td>Consecutive bars</td><td>Running signed count of same-direction bars; resets on direction change or doji</td></tr>
+          <tr><td>Doji bars</td><td>5 (0.3% of all bars) — doji ends a run of consecutive bars and is excluded from continuation analysis</td></tr>
+          <tr><td>Max consecutive bull bars</td><td class="mono">11</td></tr>
+          <tr><td>Max consecutive bear bars</td><td class="mono">8</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Research -->
+  <div class="section">
+    <div class="section-title">Research</div>
+
+    <!-- Overall Population -->
+    <div style="margin-bottom:40px;">
+      <p style="font-size:15px;font-weight:600;margin-bottom:16px;color:var(--text-primary);">Overall Population</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th class="right">Count</th>
+              <th class="right">% of Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Total bars</td>
+              <td class="mono right">1,501</td>
+              <td class="mono right">100%</td>
+            </tr>
+            <tr>
+              <td>Bull bars (+1)</td>
+              <td class="mono right">841</td>
+              <td class="right"><span class="pill green">56.1%</span></td>
+            </tr>
+            <tr>
+              <td>Bear bars (-1)</td>
+              <td class="mono right">655</td>
+              <td class="right"><span class="pill red">43.6%</span></td>
+            </tr>
+            <tr>
+              <td>Doji bars (0)</td>
+              <td class="mono right">5</td>
+              <td class="right"><span class="pill slate">0.3%</span></td>
+            </tr>
+            <tr>
+              <td>Max consecutive bull bars</td>
+              <td class="mono right">11</td>
+              <td class="mono right">—</td>
+            </tr>
+            <tr>
+              <td>Max consecutive bear bars</td>
+              <td class="mono right">8</td>
+              <td class="mono right">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Continuation tables side by side -->
+    <div style="margin-bottom:40px;">
+      <p style="font-size:15px;font-weight:600;margin-bottom:16px;color:var(--text-primary);">Consecutive Bars — Continuation Probability</p>
+      <div class="split-grid">
+
+        <!-- Bull -->
+        <div>
+          <div class="table-wrap">
+            <div class="table-header green">Bull Consecutive Bars</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Consec. Bars</th>
+                  <th class="right">Occurrences</th>
+                  <th class="right">Occ% Total</th>
+                  <th class="right">Continue</th>
+                  <th class="right">Cont%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="mono">2</td><td class="mono right">202</td><td class="mono right">13.5%</td><td class="mono right">111</td><td class="right"><span class="pill green">55.0%</span></td></tr>
+                <tr><td class="mono">3</td><td class="mono right">111</td><td class="mono right">7.4%</td><td class="mono right">61</td><td class="right"><span class="pill green">55.0%</span></td></tr>
+                <tr><td class="mono">4</td><td class="mono right">61</td><td class="mono right">4.1%</td><td class="mono right">41</td><td class="right"><span class="pill green">67.2%</span></td></tr>
+                <tr><td class="mono">5</td><td class="mono right">41</td><td class="mono right">2.7%</td><td class="mono right">20</td><td class="right"><span class="pill amber">48.8%</span></td></tr>
+                <tr><td class="mono">6</td><td class="mono right">20</td><td class="mono right">1.3%</td><td class="mono right">11</td><td class="right"><span class="pill green">55.0%</span></td></tr>
+                <tr><td class="mono">7</td><td class="mono right">11</td><td class="mono right">0.7%</td><td class="mono right">7</td><td class="right"><span class="pill green">63.6%</span></td></tr>
+                <tr><td class="mono">8</td><td class="mono right">7</td><td class="mono right">0.5%</td><td class="mono right">5</td><td class="right"><span class="pill green">71.4%</span></td></tr>
+                <tr style="opacity:0.5;"><td class="mono">9</td><td class="mono right">5</td><td class="mono right">0.3%</td><td class="mono right">1</td><td class="right"><span class="pill red">20.0%</span></td></tr>
+                <tr style="opacity:0.5;"><td class="mono">10</td><td class="mono right">1</td><td class="mono right">0.1%</td><td class="mono right">1</td><td class="right"><span class="pill green">100.0%</span></td></tr>
+                <tr style="opacity:0.5;"><td class="mono">11</td><td class="mono right">1</td><td class="mono right">0.1%</td><td class="mono right">0</td><td class="right"><span class="pill red">0.0%</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="note-box blue">
+            <strong>Note:</strong> Rows 9–11 have sample sizes of 1–5; no conclusions can be drawn from those rows (shown faded). 4 consecutive bull bars shows the strongest continuation reading with a meaningful sample: 67.2% (n=61). Rows 2, 3, and 6 cluster around 55%, close to the unconditional bull rate of 56.1%. No mean-reversion signal at any reliable sample depth.
+          </div>
+        </div>
+
+        <!-- Bear -->
+        <div>
+          <div class="table-wrap">
+            <div class="table-header red">Bear Consecutive Bars</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Consec. Bars</th>
+                  <th class="right">Occurrences</th>
+                  <th class="right">Occ% Total</th>
+                  <th class="right">Continue</th>
+                  <th class="right">Cont%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="mono">2</td><td class="mono right">159</td><td class="mono right">10.6%</td><td class="mono right">67</td><td class="right"><span class="pill red">42.1%</span></td></tr>
+                <tr><td class="mono">3</td><td class="mono right">67</td><td class="mono right">4.5%</td><td class="mono right">31</td><td class="right"><span class="pill amber">46.3%</span></td></tr>
+                <tr><td class="mono">4</td><td class="mono right">31</td><td class="mono right">2.1%</td><td class="mono right">10</td><td class="right"><span class="pill red">32.3%</span></td></tr>
+                <tr style="opacity:0.5;"><td class="mono">5</td><td class="mono right">10</td><td class="mono right">0.7%</td><td class="mono right">6</td><td class="right"><span class="pill green">60.0%</span></td></tr>
+                <tr style="opacity:0.5;"><td class="mono">6</td><td class="mono right">6</td><td class="mono right">0.4%</td><td class="mono right">2</td><td class="right"><span class="pill red">33.3%</span></td></tr>
+                <tr style="opacity:0.5;"><td class="mono">7</td><td class="mono right">2</td><td class="mono right">0.1%</td><td class="mono right">1</td><td class="right"><span class="pill amber">50.0%</span></td></tr>
+                <tr style="opacity:0.5;"><td class="mono">8</td><td class="mono right">1</td><td class="mono right">0.1%</td><td class="mono right">0</td><td class="right"><span class="pill red">0.0%</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="note-box blue">
+            <strong>Note:</strong> Rows 5–8 have sample sizes of 1–10; treat with extreme caution (shown faded). 2–4 consecutive bear bars show consistent reversal bias: 57.9%, 53.7%, 67.7%. The reversal bias at 2 consecutive bear bars (57.9% reversal rate) contrasts with 2 consecutive bull bars (55.0% continuation). Bear is the more mean-reverting side.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Insight cards -->
+    <div class="insight-grid" style="margin-bottom:40px;">
+      <div class="insight-card green">
+        <div class="insight-card-title">Bull runs lean continuation</div>
+        <div class="insight-card-body">At every reliable sample depth (2–8 consecutive bull bars), the next week is more likely to be bull than bear. The unconditional bull rate of 56.1% acts as a floor; 4 consecutive bull bars produces the strongest reading at 67.2%.</div>
+      </div>
+      <div class="insight-card red">
+        <div class="insight-card-title">Bear runs lean reversal</div>
+        <div class="insight-card-body">At every reliable sample depth (2–4 consecutive bear bars), the next week is more likely to reverse to bull. Continuation probability stays below 47% across all three reliable rows. Bear is the more mean-reverting side of this market.</div>
+      </div>
+    </div>
+
+    <!-- Population Funnel -->
+    <div style="margin-bottom:40px;">
+      <p style="font-size:15px;font-weight:600;margin-bottom:4px;color:var(--text-primary);">Consecutive Bar Runs — Population Funnel</p>
+      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;">How many distinct runs reached each depth? % of total is a share of all 1,501 weekly bars.</p>
+      <div class="table-wrap">
+        <div class="table-header slate">Population Funnel</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Consecutive Bars</th>
+              <th class="right">Bull Runs</th>
+              <th class="right">Bull % of Total</th>
+              <th class="right">Bear Runs</th>
+              <th class="right">Bear % of Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">2</td><td class="mono right">202</td><td class="right"><span class="pill green">13.5%</span></td><td class="mono right">159</td><td class="right"><span class="pill red">10.6%</span></td></tr>
+            <tr><td class="mono">3</td><td class="mono right">111</td><td class="right"><span class="pill green">7.4%</span></td><td class="mono right">67</td><td class="right"><span class="pill red">4.5%</span></td></tr>
+            <tr><td class="mono">4</td><td class="mono right">61</td><td class="right"><span class="pill green">4.1%</span></td><td class="mono right">31</td><td class="right"><span class="pill red">2.1%</span></td></tr>
+            <tr><td class="mono">5</td><td class="mono right">41</td><td class="right"><span class="pill green">2.7%</span></td><td class="mono right">10</td><td class="right"><span class="pill red">0.7%</span></td></tr>
+            <tr><td class="mono">6</td><td class="mono right">20</td><td class="right"><span class="pill green">1.3%</span></td><td class="mono right">6</td><td class="right"><span class="pill red">0.4%</span></td></tr>
+            <tr><td class="mono">7</td><td class="mono right">11</td><td class="right"><span class="pill green">0.7%</span></td><td class="mono right">2</td><td class="right"><span class="pill red">0.1%</span></td></tr>
+            <tr><td class="mono">8</td><td class="mono right">7</td><td class="right"><span class="pill green">0.5%</span></td><td class="mono right">1</td><td class="right"><span class="pill red">0.1%</span></td></tr>
+            <tr><td class="mono">9</td><td class="mono right">5</td><td class="right"><span class="pill green">0.3%</span></td><td class="mono right">—</td><td class="mono right">—</td></tr>
+            <tr><td class="mono">10</td><td class="mono right">1</td><td class="right"><span class="pill green">0.1%</span></td><td class="mono right">—</td><td class="mono right">—</td></tr>
+            <tr><td class="mono">11</td><td class="mono right">1</td><td class="right"><span class="pill green">0.1%</span></td><td class="mono right">—</td><td class="mono right">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note-box amber">
+        <strong>Note:</strong> Bull consecutive runs extend deeper than bear (max 11 vs max 8), consistent with the secular upward drift in the S&P 500 over this period. Bear runs thin out much faster — only 10 runs ever reached 5 consecutive bear weeks in 29 years.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Vocabulary -->
+  <div class="section">
+    <div class="section-title">Vocabulary</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Term</th><th>Definition</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Bar Direction</strong></td><td><span class="mono">+1</span> = close &gt; open (bull bar) &nbsp;·&nbsp; <span class="mono">-1</span> = close &lt; open (bear bar) &nbsp;·&nbsp; <span class="mono">0</span> = close == open (doji)</td></tr>
+          <tr><td><strong>Consecutive bars</strong></td><td>Count of same-direction bars in a row. Resets to 1 on direction change, 0 on doji</td></tr>
+          <tr><td><strong>Continue</strong></td><td>Next bar has the same direction as the current run</td></tr>
+          <tr><td><strong>Reverse</strong></td><td>Next bar has the opposite direction</td></tr>
+          <tr><td><strong>Occurrences</strong></td><td>Number of weekly bars that were the Nth bar in a consecutive run</td></tr>
+          <tr><td><strong>Occ% of Total</strong></td><td>Occurrences as a percentage of all 1,501 bars in the study</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="report-footer">
+    <span>ES Weekly Consecutive Bar Streaks</span>
+    <span>v1.2 · 20260610</span>
+  </div>
+
+</div>
+</body>
+</html>
