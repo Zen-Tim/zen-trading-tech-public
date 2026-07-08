@@ -1,0 +1,180 @@
+// Zen TSaM Swing Chart · Multi-Mode (2/3/4-Bar Simultaneous) v2.2 · 20260704
+// Based on: Trading Systems and Methods (Kaufman) — Swing Chart construction rules
+// Tim Fairweather · Zen Trading Tech
+//
+// RULE (Figure 5.3 caption, p.184): "Swing Reversal occurs when two consecutive
+// days of lower lows without higher highs occur" (symmetric for uptrend reversal).
+// Base method threshold = 2. This version runs three independent swing models
+// simultaneously — thresholds 2, 3, 4 — on the same chart, each drawn at a
+// different opacity (2 = solid, 3 = lighter, 4 = lightest), plus a background
+// zone that highlights bars where all three models agree on direction.
+
+//@version=5
+indicator("Zen TSaM Swing Chart · Multi-Mode 2/3/4", overlay=true, max_lines_count=500)
+
+// ─── INPUTS ──────────────────────────────────────────────────────────────────
+var string GRP1 = "Swing Modes"
+show_all  = input.bool(false, "Show All (2/3/4)", group=GRP1, tooltip="Overrides the three toggles below and shows all three models at once.")
+show_2    = input.bool(true,  "Show 2-Bar (base method)", group=GRP1)
+show_3    = input.bool(false, "Show 3-Bar", group=GRP1)
+show_4    = input.bool(false, "Show 4-Bar", group=GRP1)
+show_zone = input.bool(true,  "Show Agreement Zone", group=GRP1, tooltip="Shades the background when the 2/3/4-bar models all agree on current swing direction.")
+
+var string GRP2 = "Visuals"
+col_up      = input.color(color.new(#26a69a, 0), "Upswing Color",   group=GRP2)
+col_dn      = input.color(color.new(#ef5350, 0), "Downswing Color", group=GRP2)
+zone_transp = input.int(85, "Agreement Zone Transparency", minval=50, maxval=95, group=GRP2)
+
+// Fixed opacity ramp: 2-bar darkest/solid, 3-bar lighter, 4-bar lightest
+transp_2 = 0
+transp_3 = 35
+transp_4 = 60
+
+// ─── SWING STATE MACHINE (called once per threshold; `var` persists per call site) ──
+f_swing(_threshold, _draw, _colUp, _colDn, _transp) =>
+    var int   swing_dir      = 0
+    var float swing_high     = na
+    var float swing_low      = na
+    var int   swing_high_bar = na
+    var int   swing_low_bar  = na
+    var int   rev_count      = 0
+    var float run_low        = na
+    var int   run_low_bar    = na
+    var float run_high       = na
+    var int   run_high_bar   = na
+    var line  live_line      = na
+
+    if barstate.isfirst
+        swing_high     := high
+        swing_low      := low
+        swing_high_bar := bar_index
+        swing_low_bar  := bar_index
+        swing_dir      := 0
+
+    else if swing_dir == 0
+        higher_high = high > swing_high
+        lower_low   = low  < swing_low
+        outside_day = higher_high and lower_low
+        inside_day  = not higher_high and not lower_low
+
+        if outside_day
+            swing_high     := high
+            swing_high_bar := bar_index
+            swing_dir      := 1
+        else if inside_day
+            true
+        else if higher_high
+            swing_high     := high
+            swing_high_bar := bar_index
+            swing_dir      := 1
+        else if lower_low
+            swing_low     := low
+            swing_low_bar := bar_index
+            swing_dir     := -1
+
+    else
+        if swing_dir == 1
+            if high > swing_high
+                swing_high     := high
+                swing_high_bar := bar_index
+                rev_count      := 0
+                run_low        := na
+                run_low_bar    := na
+            else
+                moving_against = low < low[1]
+                if moving_against
+                    rev_count += 1
+                    if rev_count == 1 or na(run_low) or low < run_low
+                        run_low     := low
+                        run_low_bar := bar_index
+                else
+                    rev_count   := 0
+                    run_low     := na
+                    run_low_bar := na
+
+                if rev_count >= _threshold
+                    if _draw
+                        line.new(swing_low_bar, swing_low, swing_high_bar, swing_high,
+                             color=color.new(_colUp, _transp), width=2)
+                    swing_high     := high
+                    swing_low      := run_low
+                    swing_high_bar := bar_index
+                    swing_low_bar  := run_low_bar
+                    swing_dir      := -1
+                    rev_count      := 0
+                    run_low        := na
+                    run_low_bar    := na
+
+        else if swing_dir == -1
+            if low < swing_low
+                swing_low     := low
+                swing_low_bar := bar_index
+                rev_count     := 0
+                run_high      := na
+                run_high_bar  := na
+            else
+                moving_against = high > high[1]
+                if moving_against
+                    rev_count += 1
+                    if rev_count == 1 or na(run_high) or high > run_high
+                        run_high     := high
+                        run_high_bar := bar_index
+                else
+                    rev_count    := 0
+                    run_high     := na
+                    run_high_bar := na
+
+                if rev_count >= _threshold
+                    if _draw
+                        line.new(swing_high_bar, swing_high, swing_low_bar, swing_low,
+                             color=color.new(_colDn, _transp), width=2)
+                    swing_high     := run_high
+                    swing_low      := low
+                    swing_high_bar := run_high_bar
+                    swing_low_bar  := bar_index
+                    swing_dir      := 1
+                    rev_count      := 0
+                    run_high       := na
+                    run_high_bar   := na
+
+    // Live (in-progress) leg — the current unconfirmed swing, redrawn each bar
+    if not na(live_line)
+        line.delete(live_line)
+    if _draw
+        if swing_dir == 1
+            live_line := line.new(swing_low_bar, swing_low, swing_high_bar, swing_high,
+                 color=color.new(_colUp, math.min(_transp + 35, 90)), width=1, style=line.style_dashed)
+        else if swing_dir == -1
+            live_line := line.new(swing_high_bar, swing_high, swing_low_bar, swing_low,
+                 color=color.new(_colDn, math.min(_transp + 35, 90)), width=1, style=line.style_dashed)
+
+    swing_dir
+
+// ─── RUN ALL THREE MODELS (always computed — agreement zone needs all of them) ──
+dir2 = f_swing(2, show_all or show_2, col_up, col_dn, transp_2)
+dir3 = f_swing(3, show_all or show_3, col_up, col_dn, transp_3)
+dir4 = f_swing(4, show_all or show_4, col_up, col_dn, transp_4)
+
+// ─── AGREEMENT ZONE ──────────────────────────────────────────────────────────
+all_agree   = dir2 != 0 and dir2 == dir3 and dir3 == dir4
+zone_color  = dir2 == 1 ? color.new(col_up, zone_transp) : dir2 == -1 ? color.new(col_dn, zone_transp) : na
+bgcolor(show_zone and all_agree ? zone_color : na, title="2/3/4-Bar Agreement Zone")
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+var table dash = table.new(position.top_right, 2, 5,
+     bgcolor=color.new(color.black, 70), border_color=color.gray, border_width=1, frame_width=1)
+
+f_dir_str(d) => d == 1 ? "▲ UP" : d == -1 ? "▼ DOWN" : "—"
+f_dir_col(d) => d == 1 ? col_up : d == -1 ? col_dn : color.gray
+
+if barstate.islast
+    table.cell(dash, 0, 0, "Zen TSaM Multi-Swing", text_color=color.white,  text_size=size.small, bgcolor=color.new(color.navy, 20))
+    table.cell(dash, 1, 0, all_agree ? "AGREE" : "MIXED", text_color=all_agree ? color.lime : color.orange, text_size=size.small, bgcolor=color.new(color.navy, 20))
+    table.cell(dash, 0, 1, "2-Bar",  text_color=color.silver, text_size=size.tiny)
+    table.cell(dash, 1, 1, f_dir_str(dir2), text_color=f_dir_col(dir2), text_size=size.tiny)
+    table.cell(dash, 0, 2, "3-Bar",  text_color=color.silver, text_size=size.tiny)
+    table.cell(dash, 1, 2, f_dir_str(dir3), text_color=f_dir_col(dir3), text_size=size.tiny)
+    table.cell(dash, 0, 3, "4-Bar",  text_color=color.silver, text_size=size.tiny)
+    table.cell(dash, 1, 3, f_dir_str(dir4), text_color=f_dir_col(dir4), text_size=size.tiny)
+    table.cell(dash, 0, 4, "Zone",   text_color=color.silver, text_size=size.tiny)
+    table.cell(dash, 1, 4, show_zone ? "ON" : "OFF", text_color=color.white, text_size=size.tiny)

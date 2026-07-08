@@ -14,7 +14,7 @@ Most ABR/ADR and opening-range tools either use 24-hour ranges or assume a singl
 
 MODULE 1 - ABR MEASURED MOVES
 
-Projects 0.5x, 1x, 1.5x, and 2x ABR targets from yesterday's RTH close. Also plots yesterday's high and low, and the original 1x measured move from yesterday's range extremes.
+Projects 0.5x, 1x, 1.5x, and 2x ABR targets from yesterday's RTH close. Also plots yesterday's high and low, and the measured move from yesterday's range extremes at 1x and (optionally) 2x.
 
 ABR here is the Average Bar Range - the rolling average of daily RTH ranges over a configurable lookback (default 8 days). 1x from yesterday's close represents a typical day's travel on index futures; 2x is rare, hit roughly 1 percent of days.
 
