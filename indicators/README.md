@@ -47,6 +47,10 @@ A NinjaTrader 8 risk/reward ruler with three click modes: middle-click measures 
 
 A TradingView Pine Script v5 indicator that flags Z Bars — bars whose range is a large multiple of the 8-bar ABR — and colour-codes them across four threshold tiers (1.1x, 1.5x, 2x, 3x). Draws a midpoint reference line on each Z Bar and an arrow on the following bar when the move continues in the same direction (follow-through). Each tier has an independent On/Off toggle, so individual size bands can be isolated or hidden.
 
+### [Zen Inside Bar — Inside Bar Highlighter](./Zen-Inside-Bar)
+
+A TradingView Pine Script v6 indicator that highlights inside bars — bars whose high and low both sit within the prior bar's range — with a configurable colour, plus a built-in alert condition for when one prints.
+
 ### [Zen TSaM Swing Chart · Multi-Mode 2/3/4](./Zen-TSaM-Swing-Chart)
 
 A TradingView Pine Script v5 indicator that draws price-based swing charts using the classic 2-bar reversal rule from Perry Kaufman's *Trading Systems and Methods* (Fig 5.3, p.184) — an event-driven trend method with no time component, only price against price. Runs three reversal thresholds (2, 3, and 4 bars) simultaneously on the same chart at cascading opacity, plus an optional background zone shading bars where all three agree on direction.

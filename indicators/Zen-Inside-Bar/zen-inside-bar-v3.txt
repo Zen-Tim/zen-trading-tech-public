@@ -1,0 +1,14 @@
+//@version=6
+indicator("Zen Inside Bar v3", overlay=true)
+
+// ─── Inputs ───
+col_inside = input.color(color.rgb(255, 234, 0), "Inside Bar Colour")
+
+// ─── Inside Bar Detection ───
+isInside = high <= high[1] and low >= low[1]
+
+// ─── Plot ───
+barcolor(isInside ? col_inside : na)
+
+// ─── Alert ───
+alertcondition(isInside, title="Inside Bar", message="Inside Bar detected")
