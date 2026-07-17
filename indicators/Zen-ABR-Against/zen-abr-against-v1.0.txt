@@ -1,0 +1,78 @@
+//@version=6
+indicator("Zen ABR Against", overlay = true, max_lines_count = 500)
+
+// ---------------- Inputs: Bands ----------------
+int    abrLen  = input.int(8, "ABR Lookback", minval = 1, group = "ABR")
+
+bool   show1   = input.bool(true,  "Show 1x ABR", group = "Bands")
+bool   show2   = input.bool(false, "Show 2x ABR", group = "Bands")
+bool   show3   = input.bool(false, "Show 3x ABR", group = "Bands")
+bool   show4   = input.bool(false, "Show 4x ABR", group = "Bands")
+
+color  color1  = input.color(#c2c2c2, "1x Color (lightest)", group = "Colors")
+color  color2  = input.color(#8c8c8c, "2x Color",            group = "Colors")
+color  color3  = input.color(#4d4d4d, "3x Color",            group = "Colors")
+color  color4  = input.color(#0d0d0d, "4x Color (darkest)",  group = "Colors")
+
+int    lineWidth = input.int(1, "Line Width", minval = 1, maxval = 4, group = "Bands")
+
+// ---------------- Inputs: Breakout Bar Coloring ----------------
+bool   breakoutOn   = input.bool(true, "Enable Breakout Bar Coloring", group = "Breakout")
+int    breakLookback = input.int(1, "Bars Back to Check", minval = 1, group = "Breakout")
+int    breakLevel    = input.int(3, "ABR Multiplier Level", minval = 1, maxval = 4, group = "Breakout")
+
+color  breakUpColor    = input.color(color.blue,   "Broke Above Color", group = "Breakout")
+color  breakDownColor  = input.color(color.red,    "Broke Below Color", group = "Breakout")
+color  breakBothColor  = input.color(color.purple, "Broke Both Color",  group = "Breakout")
+
+// ---------------- ABR ----------------
+float abr = ta.sma(high - low, abrLen)
+
+// ---------------- Levels ----------------
+float upper1 = close + abr * 1
+float upper2 = close + abr * 2
+float upper3 = close + abr * 3
+float upper4 = close + abr * 4
+
+float lower1 = close - abr * 1
+float lower2 = close - abr * 2
+float lower3 = close - abr * 3
+float lower4 = close - abr * 4
+
+// ---------------- Tick geometry (fixed width, immune to session gaps) ----------------
+float tickHalf     = 0.4  // fraction of one bar's width either side of center - fixed, not user-facing
+float tfMs         = timeframe.in_seconds() * 1000
+float halfWidthMs  = tfMs * tickHalf
+int   xLeft        = int(time - halfWidthMs)
+int   xRight        = int(time + halfWidthMs)
+
+// ---------------- Tick drawing ----------------
+drawTick(bool show, float level, color col) =>
+    if show and not na(level)
+        line.new(xLeft, level, xRight, level, xloc.bar_time, extend = extend.none, color = col, width = lineWidth)
+
+drawTick(show1, upper1, color1)
+drawTick(show2, upper2, color2)
+drawTick(show3, upper3, color3)
+drawTick(show4, upper4, color4)
+
+drawTick(show1, lower1, color1)
+drawTick(show2, lower2, color2)
+drawTick(show3, lower3, color3)
+drawTick(show4, lower4, color4)
+
+// ---------------- Breakout Bar Coloring ----------------
+// Tests whether the CURRENT bar's high/low took out the ABR level (breakLevel x ABR)
+// measured from the bar breakLookback bars back (using that bar's own close and ABR).
+float refClose = close[breakLookback]
+float refAbr   = abr[breakLookback]
+
+float refUpper = refClose + refAbr * breakLevel
+float refLower = refClose - refAbr * breakLevel
+
+bool brokeUp   = breakoutOn and not na(refUpper) and high > refUpper
+bool brokeDown = breakoutOn and not na(refLower) and low  < refLower
+
+color barCol = brokeUp and brokeDown ? breakBothColor : brokeUp ? breakUpColor : brokeDown ? breakDownColor : na
+
+barcolor(barCol)
