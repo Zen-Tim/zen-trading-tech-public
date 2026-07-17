@@ -1,0 +1,53 @@
+//@version=6
+indicator("Zen ABR Range Bands v1.0", overlay=true)
+
+// ============================================================
+// INPUTS
+// ============================================================
+
+// --- Moving Average ---
+showEMA  = input.bool(true, "Show EMA", group="Moving Average")
+emaLen   = input.int(20, "EMA Length", minval=1, group="Moving Average")
+emaColor = input.color(color.new(#1A1A1A, 50), "EMA Color", group="Moving Average")
+
+// --- ABR Bands (8-bar ABR, multiplied 1x / 2x / 3x / 4x) ---
+show1x = input.bool(true,  "Show 1x ABR Band", group="ABR Bands")
+col1x  = input.color(color.new(#2B2B2B, 50), "1x ABR Color", group="ABR Bands")
+
+show2x = input.bool(false, "Show 2x ABR Band", group="ABR Bands")
+col2x  = input.color(color.new(#404040, 50), "2x ABR Color", group="ABR Bands")
+
+show3x = input.bool(false, "Show 3x ABR Band", group="ABR Bands")
+col3x  = input.color(color.new(#595959, 50), "3x ABR Color", group="ABR Bands")
+
+show4x = input.bool(false, "Show 4x ABR Band", group="ABR Bands")
+col4x  = input.color(color.new(#737373, 50), "4x ABR Color", group="ABR Bands")
+
+lineWidth = input.int(1, "Band Line Width", minval=1, maxval=4, group="ABR Bands")
+
+// ============================================================
+// CALCULATIONS
+// ============================================================
+
+emaVal = ta.ema(close, emaLen)
+
+barRange = high - low
+abr8 = ta.sma(barRange, 8)   // ABR lookback fixed at 8 — sacrosanct, never change
+
+// ============================================================
+// PLOTS
+// ============================================================
+
+plot(showEMA ? emaVal : na, title="EMA", color=emaColor, linewidth=2)
+
+plot(show1x ? emaVal + abr8 * 1 : na, title="1x ABR Upper", color=col1x, linewidth=lineWidth)
+plot(show1x ? emaVal - abr8 * 1 : na, title="1x ABR Lower", color=col1x, linewidth=lineWidth)
+
+plot(show2x ? emaVal + abr8 * 2 : na, title="2x ABR Upper", color=col2x, linewidth=lineWidth)
+plot(show2x ? emaVal - abr8 * 2 : na, title="2x ABR Lower", color=col2x, linewidth=lineWidth)
+
+plot(show3x ? emaVal + abr8 * 3 : na, title="3x ABR Upper", color=col3x, linewidth=lineWidth)
+plot(show3x ? emaVal - abr8 * 3 : na, title="3x ABR Lower", color=col3x, linewidth=lineWidth)
+
+plot(show4x ? emaVal + abr8 * 4 : na, title="4x ABR Upper", color=col4x, linewidth=lineWidth)
+plot(show4x ? emaVal - abr8 * 4 : na, title="4x ABR Lower", color=col4x, linewidth=lineWidth)
