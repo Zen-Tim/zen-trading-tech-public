@@ -1,0 +1,164 @@
+//@version=5
+indicator("Zen Open CSC Bars V9", overlay=true)
+
+// === INPUTS ===
+numBarsToCheck = input.int(2, "Bars to Check", minval=2, maxval=9)
+showLabels = input.bool(true, "Show Bull/Bear Labels")
+showSpikeLabel = input.bool(true, "Show Spike Label on Chart", group="Display")
+colourBars = input.bool(true, "Colour Bars")
+lookbackPeriod = input.int(8, "ABR Lookback Period", minval=1)
+
+// EMA Settings
+showEMA20 = input.bool(true, "Show 20 EMA", group="EMAs")
+showEMA200 = input.bool(true, "Show 200 EMA", group="EMAs")
+
+// Alert Settings
+alertOnClose = input.bool(true, "Alert on Bar Close Only", group="Alerts", tooltip="Recommended ON to avoid repainting alerts intrabar")
+
+// === NEW DAY DETECTION ===
+new_day = ta.change(time("D")) != 0
+bars_since_new_day = ta.barssince(new_day)
+in_session = bars_since_new_day >= 0
+
+// === BAR TYPE ===
+is_bull = close > open
+is_bear = close < open
+
+// === BAR RANGE CALCULATIONS ===
+bar_range = high - low
+averageBarRange = ta.sma(bar_range, lookbackPeriod)
+barRangeMultiple = averageBarRange > 0 ? bar_range / averageBarRange : 0
+
+// === CSC COUNTING ===
+var int bullishBars = 0
+var int bearishBars = 0
+
+if new_day
+    bullishBars := 0
+    bearishBars := 0
+
+if bars_since_new_day < numBarsToCheck and is_bull
+    bullishBars += 1
+if bars_since_new_day < numBarsToCheck and is_bear
+    bearishBars += 1
+
+// === DETECTION CONDITIONS ===
+bullCSC = bullishBars == numBarsToCheck and bars_since_new_day == numBarsToCheck - 1
+bearCSC = bearishBars == numBarsToCheck and bars_since_new_day == numBarsToCheck - 1
+
+// === LABELS ===
+symbol_size = size.large
+
+if showLabels
+    if bullCSC
+        label.new(bar_index, high, "🟢", color=color.green, size=symbol_size, textcolor=color.white, style=label.style_label_down, yloc=yloc.abovebar)
+    if bearCSC
+        label.new(bar_index, high, "🔴", color=color.red, size=symbol_size, textcolor=color.white, style=label.style_label_down, yloc=yloc.abovebar)
+
+// === BAR COLOURING ===
+color barcolour = na
+if colourBars
+    barcolour := bullishBars == numBarsToCheck and bars_since_new_day < numBarsToCheck ? color.green :
+                 bearishBars == numBarsToCheck and bars_since_new_day < numBarsToCheck ? color.red : na
+barcolor(barcolour)
+
+// === ALERTCONDITIONS (manual alert creation in TV UI) ===
+alertcondition(bullCSC, title="Bullish CSC Detected", message="Bullish CSC pattern detected on {{ticker}} {{interval}} at {{close}}")
+alertcondition(bearCSC, title="Bearish CSC Detected", message="Bearish CSC pattern detected on {{ticker}} {{interval}} at {{close}}")
+alertcondition(bullCSC or bearCSC, title="Any CSC Detected", message="CSC pattern detected on {{ticker}} {{interval}} at {{close}}")
+
+// === DYNAMIC ALERT() CALLS (fires on "Any alert() function call") ===
+alertTrigger = alertOnClose ? barstate.isconfirmed : true
+
+if bullCSC and alertTrigger
+    alert("🟢 Bullish CSC on " + syminfo.ticker + " " + timeframe.period + " @ " + str.tostring(close, format.mintick), alert.freq_once_per_bar_close)
+
+if bearCSC and alertTrigger
+    alert("🔴 Bearish CSC on " + syminfo.ticker + " " + timeframe.period + " @ " + str.tostring(close, format.mintick), alert.freq_once_per_bar_close)
+
+// === TOTAL SPIKE LOGIC (ALL CONSECUTIVE BARS) ===
+var int streakLength = 0
+var float spikeHigh = na
+var float spikeLow = na
+var bool spikePrinted = false
+var bool isBullStreak = na
+var float currentTotalSpikeSize = na
+var bool spikeCalculated = false
+
+if new_day
+    streakLength := 0
+    spikeHigh := na
+    spikeLow := na
+    spikePrinted := false
+    isBullStreak := na
+    currentTotalSpikeSize := na
+    spikeCalculated := false
+
+if in_session and not spikeCalculated
+    currentBull = is_bull
+    currentBear = is_bear
+    continuing = na(isBullStreak) ? true : (isBullStreak ? currentBull : currentBear)
+
+    if continuing
+        streakLength += 1
+        spikeHigh := na(spikeHigh) ? high : math.max(spikeHigh, high)
+        spikeLow := na(spikeLow) ? low : math.min(spikeLow, low)
+        if na(isBullStreak)
+            isBullStreak := currentBull ? true : false
+    else
+        if streakLength >= numBarsToCheck
+            spikeRange = spikeHigh - spikeLow
+            currentTotalSpikeSize := spikeRange
+            spikeCalculated := true
+
+            if showSpikeLabel and not spikePrinted
+                label.new(bar_index[1], spikeHigh, "Total Spike: " + str.tostring(spikeRange, format.mintick), style=label.style_label_down, textcolor=color.black, color=color.new(color.white, 100), size=size.normal)
+                spikePrinted := true
+
+// === CONSECUTIVE SPIKE (FIRST 2 BARS ONLY) ===
+var float bar1High = na
+var float bar1Low = na
+var float bar2High = na
+var float bar2Low = na
+var float consecutiveSpikeSize = na
+
+if new_day
+    bar1High := na
+    bar1Low := na
+    bar2High := na
+    bar2Low := na
+    consecutiveSpikeSize := na
+
+if bars_since_new_day == 0
+    bar1High := high
+    bar1Low := low
+
+if bars_since_new_day == 1
+    bar2High := high
+    bar2Low := low
+    consecSpikeHigh = math.max(bar1High, bar2High)
+    consecSpikeLow = math.min(bar1Low, bar2Low)
+    consecutiveSpikeSize := consecSpikeHigh - consecSpikeLow
+
+// === EMAs ===
+ema20 = ta.ema(close, 20)
+ema200 = ta.ema(close, 200)
+
+plot(showEMA20 ? ema20 : na, "EMA 20", color=color.blue, linewidth=2)
+plot(showEMA200 ? ema200 : na, "EMA 200", color=color.red, linewidth=2)
+
+// === DATA WINDOW PLOTS ===
+cscBarType = bullishBars == numBarsToCheck and bars_since_new_day < numBarsToCheck ? 1 :
+             bearishBars == numBarsToCheck and bars_since_new_day < numBarsToCheck ? -1 : 0
+
+totalSpikeSize = not na(currentTotalSpikeSize) ? currentTotalSpikeSize : 0
+consecSpikeSize = not na(consecutiveSpikeSize) ? consecutiveSpikeSize : 0
+
+plot(cscBarType, "CSC Bar Type", color=color.new(color.blue, 100), display=display.data_window)
+plot(totalSpikeSize, "Total Spike (pts)", color=color.new(color.orange, 100), display=display.data_window)
+plot(consecSpikeSize, "Consecutive Spike (pts)", color=color.new(color.purple, 100), display=display.data_window)
+plot(bar_range, "Bar Range", color=color.new(color.gray, 100), display=display.data_window)
+plot(averageBarRange, "ABR (8)", color=color.new(color.yellow, 100), display=display.data_window)
+plot(barRangeMultiple, "Range Multiple", color=color.new(color.green, 100), display=display.data_window)
+plot(ema20, "EMA 20", color=color.new(color.blue, 100), display=display.data_window)
+plot(ema200, "EMA 200", color=color.new(color.red, 100), display=display.data_window)
