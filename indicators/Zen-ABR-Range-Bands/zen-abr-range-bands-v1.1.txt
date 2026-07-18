@@ -1,0 +1,92 @@
+// © Zen_Tim_Trades
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+//@version=6
+indicator("Zen ABR Range Bands v1.1", overlay=true)
+
+// ============================================================
+// INPUTS
+// ============================================================
+
+// --- Moving Average ---
+showEMA  = input.bool(true, "Show EMA", group="Moving Average")
+emaLen   = input.int(20, "EMA Length", minval=1, group="Moving Average")
+emaColor = input.color(color.new(#1A1A1A, 50), "EMA Color", group="Moving Average")
+
+// --- ABR Bands (8-bar ABR, multiplied 1x / 2x / 3x / 4x) ---
+show1x = input.bool(true,  "Show 1x ABR Band", group="ABR Bands")
+col1x  = input.color(color.new(#2B2B2B, 50), "1x ABR Color", group="ABR Bands")
+
+show2x = input.bool(false, "Show 2x ABR Band", group="ABR Bands")
+col2x  = input.color(color.new(#404040, 50), "2x ABR Color", group="ABR Bands")
+
+show3x = input.bool(false, "Show 3x ABR Band", group="ABR Bands")
+col3x  = input.color(color.new(#595959, 50), "3x ABR Color", group="ABR Bands")
+
+show4x = input.bool(false, "Show 4x ABR Band", group="ABR Bands")
+col4x  = input.color(color.new(#737373, 50), "4x ABR Color", group="ABR Bands")
+
+lineWidth = input.int(1, "Band Line Width", minval=1, maxval=4, group="ABR Bands")
+
+// --- Bar Highlight: wick-touch hits on each ABR level, each side toggled independently ---
+// Above the EMA = SHORT side = red. Below the EMA = LONG side = blue.
+// Levels are cumulative (a 4x hit also satisfies 2x/3x), same as the performance-grid study —
+// each checkbox fires independently off its own threshold, not off the others.
+hl1xAbove = input.bool(false, "Highlight 1x Above EMA (Red)",  group="Bar Highlight")
+hl2xAbove = input.bool(false, "Highlight 2x Above EMA (Red)",  group="Bar Highlight")
+hl3xAbove = input.bool(false, "Highlight 3x Above EMA (Red)",  group="Bar Highlight")
+hl4xAbove = input.bool(false, "Highlight 4x Above EMA (Red)",  group="Bar Highlight")
+
+hl1xBelow = input.bool(false, "Highlight 1x Below EMA (Blue)", group="Bar Highlight")
+hl2xBelow = input.bool(false, "Highlight 2x Below EMA (Blue)", group="Bar Highlight")
+hl3xBelow = input.bool(false, "Highlight 3x Below EMA (Blue)", group="Bar Highlight")
+hl4xBelow = input.bool(false, "Highlight 4x Below EMA (Blue)", group="Bar Highlight")
+
+highlightColorAbove = input.color(color.red,  "Above EMA Highlight Color", group="Bar Highlight")
+highlightColorBelow = input.color(color.blue, "Below EMA Highlight Color", group="Bar Highlight")
+
+// ============================================================
+// CALCULATIONS
+// ============================================================
+
+emaVal = ta.ema(close, emaLen)
+
+barRange = high - low
+abr8 = ta.sma(barRange, 8)   // ABR lookback fixed at 8 — sacrosanct, never change
+
+// Wick-touch hit tests, one per level per side — matches the study's entry rule exactly
+hit1xAbove = high >= emaVal + abr8 * 1
+hit2xAbove = high >= emaVal + abr8 * 2
+hit3xAbove = high >= emaVal + abr8 * 3
+hit4xAbove = high >= emaVal + abr8 * 4
+
+hit1xBelow = low <= emaVal - abr8 * 1
+hit2xBelow = low <= emaVal - abr8 * 2
+hit3xBelow = low <= emaVal - abr8 * 3
+hit4xBelow = low <= emaVal - abr8 * 4
+
+aboveHit = (hl1xAbove and hit1xAbove) or (hl2xAbove and hit2xAbove) or (hl3xAbove and hit3xAbove) or (hl4xAbove and hit4xAbove)
+belowHit = (hl1xBelow and hit1xBelow) or (hl2xBelow and hit2xBelow) or (hl3xBelow and hit3xBelow) or (hl4xBelow and hit4xBelow)
+
+// On the rare bar that hits both sides (a huge-range day spanning above and below EMA), above wins the tie.
+highlightColor = aboveHit ? highlightColorAbove : belowHit ? highlightColorBelow : na
+
+barcolor(highlightColor, title="ABR Level Highlight")
+
+// ============================================================
+// PLOTS
+// ============================================================
+
+plot(showEMA ? emaVal : na, title="EMA", color=emaColor, linewidth=2)
+
+plot(show1x ? emaVal + abr8 * 1 : na, title="1x ABR Upper", color=col1x, linewidth=lineWidth)
+plot(show1x ? emaVal - abr8 * 1 : na, title="1x ABR Lower", color=col1x, linewidth=lineWidth)
+
+plot(show2x ? emaVal + abr8 * 2 : na, title="2x ABR Upper", color=col2x, linewidth=lineWidth)
+plot(show2x ? emaVal - abr8 * 2 : na, title="2x ABR Lower", color=col2x, linewidth=lineWidth)
+
+plot(show3x ? emaVal + abr8 * 3 : na, title="3x ABR Upper", color=col3x, linewidth=lineWidth)
+plot(show3x ? emaVal - abr8 * 3 : na, title="3x ABR Lower", color=col3x, linewidth=lineWidth)
+
+plot(show4x ? emaVal + abr8 * 4 : na, title="4x ABR Upper", color=col4x, linewidth=lineWidth)
+plot(show4x ? emaVal - abr8 * 4 : na, title="4x ABR Lower", color=col4x, linewidth=lineWidth)
