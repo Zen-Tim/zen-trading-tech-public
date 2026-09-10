@@ -8,7 +8,7 @@
 
 ## What's in this repo
 
-📊 **[Data](./data)** — OHLC and indicator-tagged datasets for ES, FDAX, HSI, and Nikkei futures across multiple timeframes and sessions.
+📊 **[Data](./data)** — Open, high, low and close data for ES futures: 5-minute, 15-minute, 60-minute, daily, weekly and monthly for the day session, plus daily, weekly and monthly for the full electronic session. FDAX, HSI and Nikkei to follow.
 
 📈 **[Indicators](./indicators)** — Trading indicators and tools you can drop into your own research and execution workflow.
 
@@ -30,3 +30,5 @@ For walkthroughs and live commentary: [YouTube](https://www.youtube.com/@zentrad
 ## License
 
 Released under the [MIT License](./LICENSE).
+
+A few Pine Script files still carry TradingView's default Mozilla Public License 2.0 header. Where that header is present it governs that file.
