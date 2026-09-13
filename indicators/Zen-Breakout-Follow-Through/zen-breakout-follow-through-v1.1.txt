@@ -1,0 +1,173 @@
+//@version=6
+// Zen Breakout Follow Through v1.1 - 20260913
+// Zen Trading Tech
+//
+// Bull sequence, four bars:
+//   Bar A = prior bar, no conditions
+//   Bar B = breakout:      high(B) > high(A) AND low(B) >= low(A)
+//   Bar C = follow-through: high(C) > high(B) AND low(C) >= low(B)
+//   Bar D = entry:          price trades above high(C)
+// Bear sequence is the mirror.
+//
+// Outside bars are excluded automatically (they break the low/high condition).
+// Inside bars are excluded automatically (they break the high/low condition).
+// Detection uses closed bars only. The entry fires intrabar on the break of the level.
+//
+// v1.1 changes from v1.0:
+//   - Sequence extended by one bar. The line now sits at the high/low of the
+//     follow-through bar (Bar C), not the breakout bar (Bar B).
+//   - Line width fixed to a single input, default 1.
+//   - Line length fixed at 3 bars, no extension on trigger.
+
+indicator("Zen Breakout Follow Through v1.1", shorttitle = "Zen BOFT", overlay = true, max_lines_count = 500, max_labels_count = 500)
+
+// ============================================================
+// INPUTS
+// ============================================================
+
+var string GRP_S = "Signal"
+bool   i_showBull  = input.bool(true, "Bull setups", group = GRP_S)
+bool   i_showBear  = input.bool(true, "Bear setups", group = GRP_S)
+int    i_expBars   = input.int(1, "Bars allowed for entry", minval = 1, maxval = 20, group = GRP_S, tooltip = "1 = the entry must trigger on the bar straight after the follow-through bar. Raise it to let the setup stay live longer.")
+bool   i_strictFT  = input.bool(true, "Follow-through bar must hold above the breakout bar low", group = GRP_S, tooltip = "On = the same rule applied twice, so the follow-through bar cannot be an outside bar. Off = the follow-through bar only has to take out the breakout bar high.")
+bool   i_reqClose  = input.bool(false, "Breakout and follow-through bars must close in direction", group = GRP_S, tooltip = "Off = pure high/low geometry, no close filter.")
+
+var string GRP_D = "Drawing"
+int    i_lineBars  = input.int(3, "Line length (bars)", minval = 1, maxval = 50, group = GRP_D)
+int    i_width     = input.int(1, "Line width", minval = 1, maxval = 4, group = GRP_D)
+color  i_bullPend  = input.color(color.new(#009688, 55), "Bull  pending", group = GRP_D, inline = "bull")
+color  i_bullTrig  = input.color(#009688, "triggered", group = GRP_D, inline = "bull")
+color  i_bearPend  = input.color(color.new(#E53935, 55), "Bear  pending", group = GRP_D, inline = "bear")
+color  i_bearTrig  = input.color(#E53935, "triggered", group = GRP_D, inline = "bear")
+bool   i_markers   = input.bool(true, "Trigger markers", group = GRP_D)
+
+var string GRP_A = "Alerts"
+bool   i_alerts    = input.bool(true, "Fire alert on trigger", group = GRP_A)
+
+// ============================================================
+// STATE
+// ============================================================
+
+var array<float> bullLvl  = array.new<float>()
+var array<int>   bullBar  = array.new<int>()
+var array<line>  bullLine = array.new<line>()
+
+var array<float> bearLvl  = array.new<float>()
+var array<int>   bearBar  = array.new<int>()
+var array<line>  bearLine = array.new<line>()
+
+var float lastBullTrigLvl = na
+var float lastBearTrigLvl = na
+
+bool bullTrig = false
+bool bearTrig = false
+
+// ============================================================
+// SEQUENCE DETECTION
+// Bar C = bar_index - 1, Bar B = bar_index - 2, Bar A = bar_index - 3
+// ============================================================
+
+bool enoughBars = bar_index >= 3
+
+// Bar B: breakout of Bar A
+bool bullBreak = enoughBars and high[2] > high[3] and low[2] >= low[3] and (not i_reqClose or close[2] > open[2])
+bool bearBreak = enoughBars and low[2] < low[3] and high[2] <= high[3] and (not i_reqClose or close[2] < open[2])
+
+// Bar C: follow-through of Bar B
+bool bullFT = enoughBars and high[1] > high[2] and (not i_strictFT or low[1] >= low[2]) and (not i_reqClose or close[1] > open[1])
+bool bearFT = enoughBars and low[1] < low[2] and (not i_strictFT or high[1] <= high[2]) and (not i_reqClose or close[1] < open[1])
+
+bool bullSetup = bullBreak and bullFT
+bool bearSetup = bearBreak and bearFT
+
+// ============================================================
+// REGISTER NEW PENDING SETUPS
+// ============================================================
+
+if i_showBull and bullSetup
+    float lvl = high[1]
+    line ln = line.new(bar_index - 1, lvl, bar_index - 1 + i_lineBars - 1, lvl, xloc = xloc.bar_index, color = i_bullPend, width = i_width, style = line.style_solid)
+    array.push(bullLvl, lvl)
+    array.push(bullBar, bar_index)
+    array.push(bullLine, ln)
+
+if i_showBear and bearSetup
+    float lvl = low[1]
+    line ln = line.new(bar_index - 1, lvl, bar_index - 1 + i_lineBars - 1, lvl, xloc = xloc.bar_index, color = i_bearPend, width = i_width, style = line.style_solid)
+    array.push(bearLvl, lvl)
+    array.push(bearBar, bar_index)
+    array.push(bearLine, ln)
+
+// ============================================================
+// EXPIRY AND TRIGGER - BULL
+// ============================================================
+
+if array.size(bullLvl) > 0
+    for i = array.size(bullLvl) - 1 to 0
+        float lv = array.get(bullLvl, i)
+        int   st = array.get(bullBar, i)
+        line  ln = array.get(bullLine, i)
+        if bar_index > st + i_expBars - 1
+            line.delete(ln)
+            array.remove(bullLvl, i)
+            array.remove(bullBar, i)
+            array.remove(bullLine, i)
+        else if high > lv
+            line.set_color(ln, i_bullTrig)
+            bullTrig := true
+            lastBullTrigLvl := lv
+            array.remove(bullLvl, i)
+            array.remove(bullBar, i)
+            array.remove(bullLine, i)
+
+// ============================================================
+// EXPIRY AND TRIGGER - BEAR
+// ============================================================
+
+if array.size(bearLvl) > 0
+    for i = array.size(bearLvl) - 1 to 0
+        float lv = array.get(bearLvl, i)
+        int   st = array.get(bearBar, i)
+        line  ln = array.get(bearLine, i)
+        if bar_index > st + i_expBars - 1
+            line.delete(ln)
+            array.remove(bearLvl, i)
+            array.remove(bearBar, i)
+            array.remove(bearLine, i)
+        else if low < lv
+            line.set_color(ln, i_bearTrig)
+            bearTrig := true
+            lastBearTrigLvl := lv
+            array.remove(bearLvl, i)
+            array.remove(bearBar, i)
+            array.remove(bearLine, i)
+
+// ============================================================
+// MARKERS
+// ============================================================
+
+plotshape(i_markers and bullTrig, title = "Bull entry", style = shape.triangleup, location = location.belowbar, color = i_bullTrig, size = size.tiny)
+plotshape(i_markers and bearTrig, title = "Bear entry", style = shape.triangledown, location = location.abovebar, color = i_bearTrig, size = size.tiny)
+
+// ============================================================
+// ALERTS
+// ============================================================
+
+if i_alerts and bullTrig
+    alert("Zen BOFT bull entry " + syminfo.ticker + " " + timeframe.period + " above " + str.tostring(lastBullTrigLvl, format.mintick), alert.freq_once_per_bar)
+
+if i_alerts and bearTrig
+    alert("Zen BOFT bear entry " + syminfo.ticker + " " + timeframe.period + " below " + str.tostring(lastBearTrigLvl, format.mintick), alert.freq_once_per_bar)
+
+// ============================================================
+// DATA WINDOW
+// ============================================================
+
+plot(bullSetup ? 1 : 0, title = "Bull setup complete (prev bar)", display = display.data_window)
+plot(bearSetup ? 1 : 0, title = "Bear setup complete (prev bar)", display = display.data_window)
+plot(bullTrig ? 1 : 0, title = "Bull entry trigger", display = display.data_window)
+plot(bearTrig ? 1 : 0, title = "Bear entry trigger", display = display.data_window)
+plot(array.size(bullLvl), title = "Bull pending count", display = display.data_window)
+plot(array.size(bearLvl), title = "Bear pending count", display = display.data_window)
+plot(lastBullTrigLvl, title = "Last bull entry level", display = display.data_window)
+plot(lastBearTrigLvl, title = "Last bear entry level", display = display.data_window)

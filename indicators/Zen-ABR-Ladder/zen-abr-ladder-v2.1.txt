@@ -1,0 +1,277 @@
+// © Zen_Tim_Trades
+
+//@version=6
+// ============================================================================
+//  Zen ABR Ladder v2.1 · 20260913
+//  Sub-pane (overlay = false). Everything is in PRICE POINTS.
+//
+//    - Five ABR lines, locked at lookbacks 2, 4, 8, 16, 32.
+//    - Scalp line: a percent of ADR (default 10%), drawn in points.
+//    - Grey cloud: translucent fills from the scalp line to ABR 4, 8, 16, 32.
+//      Overlapping layers darken where the lines agree. Above the scalp line
+//      means a typical bar is bigger than the scalp target. Below means the
+//      target now takes several bars, so aim for fewer points.
+//    - Three fixed point levels, all off by default.
+//
+//  ABR excludes the bar currently forming, so no line repaints intrabar.
+//  ADR is the standard daily bar range (ETH included), averaged over the last
+//  N completed daily bars. No session or instrument setup needed. If you want
+//  an RTH-only ADR, edit the request.security call to use a session-filtered
+//  series.
+//
+//  v1.1 — daily bar replaces RTH session tracking.
+//  v1.2 — every drawn element given its own on/off switch.
+//  v1.3 — 40% ADR line removed. Blue ramp introduced.
+//  v1.4 — editable lookbacks, three spare slots, auto shading.
+//  v1.5 — three fixed point levels added.
+//  v1.6 — spare slots removed, lookbacks locked. Shading added.
+//  v1.7 — ABR 2 stopped contributing a shading layer.
+//  v1.8 — line switches hide colour only, so the cloud survives alone.
+//  v1.9 — default view: grey cloud, grey ABR 8, grey scalp line.
+//  v2.0 — added a % of ADR unit mode. Withdrawn in v2.1.
+//  v2.1 — points only, no unit choice. Pane cap is now ON by default at 2x
+//         the scalp line, which is what stops FDAX spikes squashing the
+//         readable zone. ABR 2 leaves the pane entirely when switched off,
+//         since it feeds no shading layer.
+// ============================================================================
+
+indicator("Zen ABR Ladder v2.1", shorttitle="ABR Ladder", overlay=false, precision=2)
+
+// ============================================================================
+//  INPUTS — PANE CAP
+//  The hidden ABR 4, 16 and 32 must keep live values so the cloud has
+//  something to fill against, and TradingView scales the pane to every live
+//  series. The cap stops one spike deciding the whole vertical scale.
+// ============================================================================
+g_scale = "Pane Cap"
+
+bool  clipOn = input.bool(true, "Cap pane at", inline="cl", group=g_scale)
+float clipX  = input.float(2.0, "x scalp line", inline="cl", group=g_scale, minval=1.0, maxval=20.0, step=0.25,
+     tooltip="Anything above this multiple of the scalp line draws flat at the cap instead of stretching the pane. At 2x the scalp line sits halfway up the pane. The table always shows the true uncapped value.")
+
+// ============================================================================
+//  INPUTS — ABR LINES (lookbacks locked)
+// ============================================================================
+g_abr = "ABR Lines"
+
+bool  s2  = input.bool(false, "ABR 2", inline="a2",  group=g_abr,
+     tooltip="ABR 2 feeds no shading layer, so switching it off removes it from the pane scale completely.")
+color c2  = input.color(#6BAEE8, "",    inline="a2",  group=g_abr)
+int   w2  = input.int(1, "",            inline="a2",  group=g_abr, minval=1, maxval=6)
+
+bool  s4  = input.bool(false, "ABR 4", inline="a4",  group=g_abr)
+color c4  = input.color(#3D8FDB, "",    inline="a4",  group=g_abr)
+int   w4  = input.int(1, "",            inline="a4",  group=g_abr, minval=1, maxval=6)
+
+bool  s8  = input.bool(true, "ABR 8",  inline="a8",  group=g_abr)
+color c8  = input.color(#607D8B, "",    inline="a8",  group=g_abr)
+int   w8  = input.int(1, "",            inline="a8",  group=g_abr, minval=1, maxval=6)
+
+bool  s16 = input.bool(false, "ABR 16", inline="a16", group=g_abr)
+color c16 = input.color(#124A96, "",     inline="a16", group=g_abr)
+int   w16 = input.int(1, "",             inline="a16", group=g_abr, minval=1, maxval=6)
+
+bool  s32 = input.bool(false, "ABR 32", inline="a32", group=g_abr)
+color c32 = input.color(#0A2A5E, "",     inline="a32", group=g_abr)
+int   w32 = input.int(1, "",             inline="a32", group=g_abr, minval=1, maxval=6)
+
+// ============================================================================
+//  INPUTS — SCALP REFERENCE LINE
+// ============================================================================
+g_adr = "Scalp Reference Line"
+
+int   adr_len = input.int(8, "ADR Lookback (completed daily bars)", minval=1, maxval=200, group=g_adr)
+
+bool  sScalp = input.bool(true, "Scalp line", inline="s1", group=g_adr)
+float pScalp = input.float(10.0, "% of ADR", inline="s1", group=g_adr, minval=0.0, maxval=500.0, step=1.0)
+color cScalp = input.color(#37474F, "", inline="s1", group=g_adr)
+int   wScalp = input.int(1, "Scalp line width", minval=1, maxval=8, group=g_adr)
+
+bool  sADR = input.bool(false, "Full ADR (100%)", inline="s2", group=g_adr,
+     tooltip="Off by default. The full daily range is far larger than the intraday ABR lines.")
+color cADR = input.color(#78909C, "", inline="s2", group=g_adr)
+
+// ============================================================================
+//  INPUTS — SHADING
+// ============================================================================
+g_sh = "Shading"
+
+string sh_mode = input.string("Stacked (4/8/16/32)", "Mode", options=["Stacked (4/8/16/32)", "Middle three", "Off"], group=g_sh,
+     tooltip="Stacked: one translucent fill per ABR line, all from the scalp line, for ABR 4, 8, 16 and 32. Where the lines agree the fills overlap and the grey gets darker on its own.\nMiddle three: drops the fastest line (ABR 2) and the slowest (ABR 32), fills from the average of ABR 4, 8 and 16. Much tamer top edge on FDAX.")
+color sh_col  = input.color(#546E7A, "Shade colour", inline="sh1", group=g_sh)
+int   sh_tr   = input.int(90, "Transparency", inline="sh1", group=g_sh, minval=50, maxval=99)
+
+bool  show_mid = input.bool(false, "Show middle-three line", inline="sh2", group=g_sh)
+color c_mid    = input.color(#263238, "", inline="sh2", group=g_sh)
+
+bool  show_x   = input.bool(false, "Mark scalp crossings", group=g_sh,
+     tooltip="Off by default. Dots on the scalp line where the middle-three average crosses it.")
+
+// ============================================================================
+//  INPUTS — FIXED HORIZONTAL LEVELS (points)
+// ============================================================================
+g_hl = "Fixed Levels (points)"
+
+bool  h1on = input.bool(false, "Level 1", inline="h1", group=g_hl)
+float h1v  = input.float(10.0, "pts",     inline="h1", group=g_hl, minval=0.0, step=0.25)
+color h1c  = input.color(#455A64, "",     inline="h1", group=g_hl)
+int   h1w  = input.int(1, "",             inline="h1", group=g_hl, minval=1, maxval=6)
+
+bool  h2on = input.bool(false, "Level 2", inline="h2", group=g_hl)
+float h2v  = input.float(5.0, "pts",      inline="h2", group=g_hl, minval=0.0, step=0.25)
+color h2c  = input.color(#78909C, "",     inline="h2", group=g_hl)
+int   h2w  = input.int(1, "",             inline="h2", group=g_hl, minval=1, maxval=6)
+
+bool  h3on = input.bool(false, "Level 3", inline="h3", group=g_hl)
+float h3v  = input.float(3.0, "pts",      inline="h3", group=g_hl, minval=0.0, step=0.25)
+color h3c  = input.color(#B0BEC5, "",     inline="h3", group=g_hl)
+int   h3w  = input.int(1, "",             inline="h3", group=g_hl, minval=1, maxval=6)
+
+// ============================================================================
+//  INPUTS — TABLE
+// ============================================================================
+g_tbl = "Table"
+
+bool   show_tbl = input.bool(false, "Show value table", group=g_tbl)
+string tbl_pos  = input.string("Top Right", "Position", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left"], group=g_tbl)
+color  tbl_txt  = input.color(#212121, "Text", inline="t1", group=g_tbl)
+color  tbl_bg   = input.color(color.new(#FFFFFF, 10), "Background", inline="t1", group=g_tbl)
+
+// ============================================================================
+//  ABR — average bar range, prior confirmed chart bars only
+// ============================================================================
+float bar_range       = high - low
+float prior_bar_range = bar_range[1]
+
+float abr2  = ta.sma(prior_bar_range, 2)
+float abr4  = ta.sma(prior_bar_range, 4)
+float abr8  = ta.sma(prior_bar_range, 8)
+float abr16 = ta.sma(prior_bar_range, 16)
+float abr32 = ta.sma(prior_bar_range, 32)
+
+float mid3 = (abr4 + abr8 + abr16) / 3.0
+
+// ============================================================================
+//  ADR — standard daily bar range, last N completed daily bars
+// ============================================================================
+string adr_tf = timeframe.in_seconds("D") > timeframe.in_seconds(timeframe.period) ? "D" : timeframe.period
+
+float adr   = request.security(syminfo.tickerid, adr_tf, ta.sma(high - low, adr_len)[1], lookahead=barmerge.lookahead_off)
+float scalp = adr * pScalp / 100.0
+
+// ============================================================================
+//  PANE CAP
+// ============================================================================
+float capLevel = scalp * clipX
+
+clip(float v) => clipOn and not na(v) and not na(capLevel) ? math.min(v, capLevel) : v
+
+float d2   = clip(abr2)
+float d4   = clip(abr4)
+float d8   = clip(abr8)
+float d16  = clip(abr16)
+float d32  = clip(abr32)
+float dMid = clip(mid3)
+float dADR = clip(adr)
+
+// ============================================================================
+//  PLOTS
+//  ABR 2 feeds no fill, so it is fully removed from the pane when off. The
+//  other four keep live values even when hidden, because a fill needs two
+//  live series to draw between.
+// ============================================================================
+p2  = plot(s2 ? d2 : na, title="ABR 2",  color=s2  ? c2  : na, linewidth=w2)
+p4  = plot(d4,           title="ABR 4",  color=s4  ? c4  : na, linewidth=w4)
+p8  = plot(d8,           title="ABR 8",  color=s8  ? c8  : na, linewidth=w8)
+p16 = plot(d16,          title="ABR 16", color=s16 ? c16 : na, linewidth=w16)
+p32 = plot(d32,          title="ABR 32", color=s32 ? c32 : na, linewidth=w32)
+
+pScalpLine = plot(scalp, title="Scalp",            color=sScalp   ? cScalp : na, linewidth=wScalp)
+pMid       = plot(dMid,  title="Middle three avg", color=show_mid ? c_mid  : na, linewidth=2)
+
+plot(sADR ? dADR : na, title="ADR", color=cADR, linewidth=1)
+
+plot(h1on ? h1v : na, title="Fixed level 1", color=h1c, linewidth=h1w)
+plot(h2on ? h2v : na, title="Fixed level 2", color=h2c, linewidth=h2w)
+plot(h3on ? h3v : na, title="Fixed level 3", color=h3c, linewidth=h3w)
+
+plot(adr,  title="ADR value",       color=color.new(color.gray, 100), display=display.data_window)
+plot(abr2, title="ABR 2 true",      color=color.new(color.gray, 100), display=display.data_window)
+plot(mid3, title="Middle 3 true",   color=color.new(color.gray, 100), display=display.data_window)
+
+// ============================================================================
+//  SHADING
+// ============================================================================
+bool  stacked  = sh_mode == "Stacked (4/8/16/32)"
+bool  midOnly  = sh_mode == "Middle three"
+color shadeCol = color.new(sh_col, sh_tr)
+
+fill(pScalpLine, p4,   color = stacked ? shadeCol : na, title="Shade ABR 4")
+fill(pScalpLine, p8,   color = stacked ? shadeCol : na, title="Shade ABR 8")
+fill(pScalpLine, p16,  color = stacked ? shadeCol : na, title="Shade ABR 16")
+fill(pScalpLine, p32,  color = stacked ? shadeCol : na, title="Shade ABR 32")
+fill(pScalpLine, pMid, color = midOnly ? shadeCol : na, title="Shade middle three")
+
+// ============================================================================
+//  CROSS MARKERS
+// ============================================================================
+bool xUp   = ta.crossover(mid3, scalp)
+bool xDown = ta.crossunder(mid3, scalp)
+
+plotshape(show_x and xUp   ? scalp : na, title="Mid-3 crosses up",   style=shape.circle, location=location.absolute, color=#1E6DC4, size=size.tiny)
+plotshape(show_x and xDown ? scalp : na, title="Mid-3 crosses down", style=shape.circle, location=location.absolute, color=#37474F, size=size.tiny)
+
+// ============================================================================
+//  TABLE — always shows true uncapped values
+// ============================================================================
+f_pct(float v) => na(adr) or adr == 0 or na(v) ? "-" : str.tostring(v / adr * 100.0, "#.#") + "%"
+f_pts(float v) => na(v) ? "-" : str.tostring(v, format.mintick)
+
+var table t = table.new(
+     tbl_pos == "Top Right" ? position.top_right :
+     tbl_pos == "Top Left" ? position.top_left :
+     tbl_pos == "Bottom Right" ? position.bottom_right : position.bottom_left,
+     3, 14, border_width=1, border_color=color.new(#B0BEC5, 40))
+
+row(table tb, int r, string lbl, string mid, string rgt, color lblCol) =>
+    table.cell(tb, 0, r, lbl, bgcolor=tbl_bg, text_color=lblCol,  text_size=size.small)
+    table.cell(tb, 1, r, mid, bgcolor=tbl_bg, text_color=tbl_txt, text_size=size.small)
+    table.cell(tb, 2, r, rgt, bgcolor=tbl_bg, text_color=tbl_txt, text_size=size.small)
+
+if show_tbl and barstate.islast
+    table.clear(t, 0, 0, 2, 13)
+    row(t, 0, "", "Points", "% ADR", tbl_txt)
+
+    int r = 1
+    if s2
+        row(t, r, "ABR 2", f_pts(abr2), f_pct(abr2), c2)
+        r += 1
+    if s4
+        row(t, r, "ABR 4", f_pts(abr4), f_pct(abr4), c4)
+        r += 1
+    if s8
+        row(t, r, "ABR 8", f_pts(abr8), f_pct(abr8), c8)
+        r += 1
+    if s16
+        row(t, r, "ABR 16", f_pts(abr16), f_pct(abr16), c16)
+        r += 1
+    if s32
+        row(t, r, "ABR 32", f_pts(abr32), f_pct(abr32), c32)
+        r += 1
+    row(t, r, "Middle 3", f_pts(mid3), f_pct(mid3), c_mid)
+    r += 1
+    if sScalp
+        row(t, r, "Scalp", f_pts(scalp), str.tostring(pScalp, "#.#") + "%", cScalp)
+        r += 1
+    if sADR
+        row(t, r, "ADR", f_pts(adr), "100%", cADR)
+        r += 1
+    if h1on
+        row(t, r, "Level 1", f_pts(h1v), f_pct(h1v), h1c)
+        r += 1
+    if h2on
+        row(t, r, "Level 2", f_pts(h2v), f_pct(h2v), h2c)
+        r += 1
+    if h3on
+        row(t, r, "Level 3", f_pts(h3v), f_pct(h3v), h3c)
+        r += 1

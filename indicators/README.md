@@ -2,7 +2,7 @@
 
 Trading indicators and tools for traders to use in their own research and execution. Each indicator lives in its own folder with the source file and a README explaining what it does, how to install it, and how to read its output.
 
-Fifteen indicators, listed A to Z below.
+Seventeen indicators, listed A to Z below.
 
 ---
 
@@ -11,6 +11,14 @@ Fifteen indicators, listed A to Z below.
 ### [Zen ABR Against](./Zen-ABR-Against)
 
 A TradingView Pine Script indicator that marks Average Bar Range (ABR) levels as short tick marks above and below price, then colours any bar that breaks a prior bar's ABR level against the direction that break implies. Inspired by the "boxes against you" breakout-failure idea in Perry Kaufman's *Trading Systems and Methods*, where one box is one ABR. Two settings control the test: how many bars back to measure from, and how many ABR boxes away counts as a break. A diagnostic tool for testing that question visually, not an answer to it.
+
+### [Zen ABR Ladder](./Zen-ABR-Ladder)
+
+A TradingView Pine Script v6 sub-pane indicator that puts a scalp-sized target and the market's own average bar size on the same scale, in points. Five ABR lines at lookbacks 2, 4, 8, 16 and 32, plus one scalp reference line at a percentage of the Average Daily Range (default 10%). A translucent grey cloud fills between them and darkens where the lookbacks agree, so one glance says whether an average bar on this timeframe is big enough to carry the target. Pane cap on by default so a single volatility spike cannot squash the readable zone.
+
+### [Zen ABR Ladder](./Zen-ABR-Ladder)
+
+A TradingView Pine Script v6 sub-pane indicator that shows how big a typical bar is right now against the size of a scalp. Five Average Bar Range (ABR) lines at fixed lookbacks of 2, 4, 8, 16 and 32, a scalp reference line set as a percent of Average Daily Range (default 10%), and a translucent grey cloud filling between them — overlapping layers darken where the lines agree, so no single lookback has to be chosen as the driver. Above the scalp line means a typical bar is bigger than the scalp target; below means the target takes several bars. A pane cap at 2x the scalp line stops one spike squashing the readable zone. Everything is drawn in price points, with no session or instrument setup.
 
 ### [Zen ABR Range Bands](./Zen-ABR-Range-Bands)
 
@@ -95,5 +103,3 @@ Source is provided as `.txt` or `.pine` files for TradingView, and `.cs` for Nin
 ## Licence
 
 MIT — see the [LICENSE](../LICENSE) file. Free to use, modify and share, with attribution to [Zen Trading Tech](https://zentradingtech.com) appreciated.
-
-A few Pine Script files still carry TradingView's default Mozilla Public License 2.0 header. Where that header is present it governs that file.
