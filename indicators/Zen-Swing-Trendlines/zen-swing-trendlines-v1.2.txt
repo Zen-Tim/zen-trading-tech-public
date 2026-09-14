@@ -1,0 +1,291 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Zen_Tim_Trades
+// Zen Swing Trendlines v1.2 · 20260910
+// Tim Fairweather · Zen Trading Tech
+//
+// Joins swing points into trendlines and projects them forward.
+//   Bear line: older swing high -> newer, lower swing high.
+//   Bull line: older swing low  -> newer, higher swing low.
+//
+// SWING POINTS — Zen Swing 123 timing (Kaufman, Trading Systems and Methods)
+//   A swing flips after N bars in a row move against it (N = 1/2/3/4).
+//   2 = Kaufman base method. 1 catches one-bar pullbacks.
+//   Anchor = true highest high / lowest low since the prior swing point.
+//   (Zen Swing 123 v2.2 starts each leg at the confirm bar instead.)
+//
+// LINE RULES
+//   A line is built only on the bar its second swing point is confirmed.
+//   The dot marks that bar. Line segment left of the dot = drawn after the fact.
+//   Tolerance = share of ABR a wick or close may pass the line and still count as on it.
+//   1. Clean   — no wick between the two anchors passes the line by more than tolerance.
+//   2. Intact  — no close through the line (beyond tolerance) from anchor 2 to the confirm bar.
+//   3. Slope   — points per bar / ABR <= max steepness. ABR = 8-bar average range, prior bars.
+//   4. Ends    — close through the line (broken) or life limit reached (expired). Left faded.
+//   5. Tidy    — steepest + shallowest per new swing point; one live line per start point;
+//                max live lines per side. Replaced / capped lines end faded (not deleted).
+//   6. Live lines hide when price is far away (last bar only).
+//
+// v1.2  20260910  Swing point triangles and 'appears' dots default off.
+// v1.1  20260910  Tolerance now a share of ABR (was ticks) so it scales across timeframes.
+//                 Replaced and capped lines end faded instead of being deleted, so every
+//                 'appears' dot keeps its line.
+// v1.0  20260910  First build.
+
+//@version=6
+indicator("Zen Swing Trendlines v1.2", overlay=true, max_lines_count=500, max_labels_count=500)
+
+max_bars_back(high, 1000)
+max_bars_back(low, 1000)
+max_bars_back(close, 1000)
+
+// ─── INPUTS ───────────────────────────────────────────────────────────────
+var string GS = "Swing Points"
+i_thr     = input.int(1, "Bars against to confirm", options=[1, 2, 3, 4], group=GS, tooltip="Bars in a row moving against the swing before it flips. 2 = Kaufman base method. 1 catches one-bar pullbacks.")
+i_showPiv = input.bool(false, "Show swing points", group=GS)
+
+var string GB = "Line Builder"
+i_K        = input.int(5, "Older swing points to try", minval=1, maxval=10, group=GB)
+i_maxSpan  = input.int(150, "Max bars between anchors", minval=2, maxval=500, group=GB)
+i_maxSteep = input.float(1.0, "Max steepness (ABR per bar)", minval=0.05, step=0.05, group=GB, tooltip="Points the line moves per bar, divided by ABR. Blocks near-vertical lines.")
+i_tolAbr   = input.float(0.10, "Tolerance (share of ABR)", minval=0.0, maxval=1.0, step=0.05, group=GB, tooltip="How far a wick or close may pass the line and still count as on it. 0.10 = one tenth of the 8-bar average range.")
+i_stSh     = input.bool(true, "Steepest + shallowest only", group=GB, tooltip="When a new swing point pairs with 3+ older points, keep only the nearest (steepest) and farthest (shallowest).")
+i_oneOrig  = input.bool(true, "One live line per start point", group=GB, tooltip="A new line from the same start point replaces the older live line.")
+
+var string GR = "Relevance"
+i_maxLive = input.int(3, "Max live lines per side", minval=1, maxval=10, group=GR)
+i_maxAge  = input.int(78, "Line life (bars after it appears)", minval=5, maxval=1000, group=GR)
+i_maxDist = input.float(4.0, "Hide live line beyond (ABR from price)", minval=0.5, step=0.5, group=GR)
+i_today   = input.bool(false, "Today's session only", group=GR, tooltip="Clears lines and swing points at the RTH open. Off = lines carry across sessions.")
+
+var string GV = "Visuals"
+i_proj     = input.int(10, "Project live lines forward (bars)", minval=0, maxval=200, group=GV)
+i_colBear  = input.color(#d1242f, "Bear line", inline="col", group=GV)
+i_colBull  = input.color(#1f6feb, "Bull line", inline="col", group=GV)
+i_width    = input.int(1, "Line width", minval=1, maxval=4, group=GV)
+i_showEnd  = input.bool(true, "Show broken / expired lines", group=GV)
+i_endTr    = input.int(70, "Broken / expired transparency", minval=0, maxval=95, group=GV)
+i_showBorn = input.bool(false, "Mark bar where line appears", group=GV)
+
+// ─── TYPES ────────────────────────────────────────────────────────────────
+type Piv
+    int   bar
+    float price
+
+type TL
+    int   side   // 1 = bear (swing highs), -1 = bull (swing lows)
+    int   x1
+    float y1
+    float m
+    int   born
+    line  ln
+
+// ─── STATE ────────────────────────────────────────────────────────────────
+var array<Piv> hiPiv = array.new<Piv>()
+var array<Piv> loPiv = array.new<Piv>()
+var array<TL>  bear  = array.new<TL>()
+var array<TL>  bull  = array.new<TL>()
+
+var int   sDir    = 0
+var float sHi     = na
+var float sLo     = na
+var int   rc      = 0
+var int   lastPiv = na
+var int   sessBar = 0
+
+abr = ta.sma(high - low, 8)[1]
+tol = na(abr) ? 0.0 : i_tolAbr * abr
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────
+f_y(TL t, int x) =>
+    t.y1 + t.m * (x - t.x1)
+
+f_col(int side) =>
+    side == 1 ? i_colBear : i_colBull
+
+// End a line at bar x: fade it, or delete it if ended lines are hidden
+f_end(TL t, int x) =>
+    if i_showEnd
+        line.set_xy2(t.ln, x, f_y(t, x))
+        line.set_color(t.ln, color.new(f_col(t.side), i_endTr))
+    else
+        line.delete(t.ln)
+
+// Kill live lines that closed through or reached their life limit
+f_checkDeaths(array<TL> live, bool isBear, float tl) =>
+    int n = array.size(live)
+    if n > 0
+        for j = n - 1 to 0
+            TL t = array.get(live, j)
+            float y = f_y(t, bar_index)
+            bool broke = isBear ? close > y + tl : close < y - tl
+            if broke or bar_index - t.born > i_maxAge
+                f_end(t, bar_index)
+                array.remove(live, j)
+
+// Build lines from a newly confirmed swing point
+f_build(array<Piv> store, array<TL> live, int side, int pBar, float pPrice, float a, float tl) =>
+    bool isH = side == 1
+    array<TL> cands = array.new<TL>()
+    int n = array.size(store)
+    if n > 0 and not na(a)
+        for j = n - 1 to math.max(0, n - i_K)
+            Piv p1 = array.get(store, j)
+            int span = pBar - p1.bar
+            bool startOk = isH ? p1.price > pPrice : p1.price < pPrice
+            if startOk and span >= 2 and span <= i_maxSpan and bar_index - p1.bar < 900
+                float m = (pPrice - p1.price) / span
+                if math.abs(m) / a <= i_maxSteep
+                    bool ok = true
+                    // Rule 1: clean between anchors (wicks)
+                    for x = p1.bar + 1 to pBar - 1
+                        float yx = p1.price + m * (x - p1.bar)
+                        int off = bar_index - x
+                        bool thru = isH ? high[off] > yx + tl : low[off] < yx - tl
+                        if thru
+                            ok := false
+                            break
+                    // Rule 2: no close through from anchor 2 to confirm bar
+                    if ok and bar_index > pBar
+                        for x = pBar + 1 to bar_index
+                            float yc = p1.price + m * (x - p1.bar)
+                            int off2 = bar_index - x
+                            bool cthru = isH ? close[off2] > yc + tl : close[off2] < yc - tl
+                            if cthru
+                                ok := false
+                                break
+                    if ok
+                        array.push(cands, TL.new(side=side, x1=p1.bar, y1=p1.price, m=m, born=bar_index))
+    // Rule 5a: steepest (nearest start) + shallowest (farthest start) only
+    int nc = array.size(cands)
+    if i_stSh and nc > 2
+        TL nearT = array.get(cands, 0)
+        TL farT  = array.get(cands, nc - 1)
+        array.clear(cands)
+        array.push(cands, nearT)
+        array.push(cands, farT)
+    nc := array.size(cands)
+    // Add farthest start first, nearest last
+    if nc > 0
+        for j = nc - 1 to 0
+            TL t = array.get(cands, j)
+            // Rule 5b: one live line per start point
+            if i_oneOrig
+                int nl = array.size(live)
+                if nl > 0
+                    for q = nl - 1 to 0
+                        TL o = array.get(live, q)
+                        if o.x1 == t.x1
+                            f_end(o, bar_index)
+                            array.remove(live, q)
+            int x2 = bar_index + i_proj
+            t.ln := line.new(t.x1, t.y1, x2, f_y(t, x2), xloc=xloc.bar_index, color=f_col(side), width=i_width)
+            array.push(live, t)
+            if i_showBorn
+                label.new(bar_index, f_y(t, bar_index), "", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_circle, color=f_col(side), size=size.tiny)
+    // Rule 5c: max live lines per side
+    while array.size(live) > i_maxLive
+        TL o = array.shift(live)
+        f_end(o, bar_index)
+    // Store the new swing point
+    array.push(store, Piv.new(pBar, pPrice))
+    if array.size(store) > 20
+        array.shift(store)
+
+// ─── SESSION RESET (optional) ─────────────────────────────────────────────
+if session.isfirstbar_regular
+    sessBar := bar_index
+    if i_today
+        for t in bear
+            f_end(t, bar_index - 1)
+        for t in bull
+            f_end(t, bar_index - 1)
+        array.clear(bear)
+        array.clear(bull)
+        array.clear(hiPiv)
+        array.clear(loPiv)
+
+// ─── SWING STATE MACHINE (Zen Swing 123 timing, true-extreme anchors) ────
+int   pType  = 0
+int   pBar   = na
+float pPrice = na
+
+if barstate.isfirst
+    sHi := high
+    sLo := low
+else if sDir == 0
+    if high > sHi
+        sHi  := high
+        sDir := 1
+    else if low < sLo
+        sLo  := low
+        sDir := -1
+else if sDir == 1
+    if high > sHi
+        sHi := high
+        rc  := 0
+    else
+        rc := low < low[1] ? rc + 1 : 0
+        if rc >= i_thr
+            int start = na(lastPiv) ? math.max(0, bar_index - 500) : lastPiv + 1
+            int kBest = 0
+            float best = high
+            for k = 0 to bar_index - start
+                if high[k] >= best
+                    best  := high[k]
+                    kBest := k
+            pType   := 1
+            pBar    := bar_index - kBest
+            pPrice  := best
+            lastPiv := pBar
+            sLo     := low
+            sDir    := -1
+            rc      := 0
+else
+    if low < sLo
+        sLo := low
+        rc  := 0
+    else
+        rc := high > high[1] ? rc + 1 : 0
+        if rc >= i_thr
+            int start = na(lastPiv) ? math.max(0, bar_index - 500) : lastPiv + 1
+            int kBest = 0
+            float best = low
+            for k = 0 to bar_index - start
+                if low[k] <= best
+                    best  := low[k]
+                    kBest := k
+            pType   := -1
+            pBar    := bar_index - kBest
+            pPrice  := best
+            lastPiv := pBar
+            sHi     := high
+            sDir    := 1
+            rc      := 0
+
+// ─── SWING POINT MARKERS ──────────────────────────────────────────────────
+if pType != 0 and i_showPiv
+    label.new(pBar, pPrice, "", xloc=xloc.bar_index, yloc=yloc.price, style=pType == 1 ? label.style_triangledown : label.style_triangleup, color=f_col(pType), size=size.tiny)
+
+// ─── LINE ENDS (before new lines, same as test) ───────────────────────────
+f_checkDeaths(bear, true, tol)
+f_checkDeaths(bull, false, tol)
+
+// ─── NEW LINES ────────────────────────────────────────────────────────────
+if pType != 0 and (not i_today or pBar >= sessBar)
+    if pType == 1
+        f_build(hiPiv, bear, 1, pBar, pPrice, abr, tol)
+    else
+        f_build(loPiv, bull, -1, pBar, pPrice, abr, tol)
+
+// ─── LIVE LINES: PROJECT FORWARD + HIDE WHEN FAR (last bar) ──────────────
+if barstate.islast
+    for t in bear
+        int x2 = bar_index + i_proj
+        line.set_xy2(t.ln, x2, f_y(t, x2))
+        bool tooFar = not na(abr) and math.abs(close - f_y(t, bar_index)) > i_maxDist * abr
+        line.set_color(t.ln, color.new(i_colBear, tooFar ? 100 : 0))
+    for t in bull
+        int x2 = bar_index + i_proj
+        line.set_xy2(t.ln, x2, f_y(t, x2))
+        bool tooFar = not na(abr) and math.abs(close - f_y(t, bar_index)) > i_maxDist * abr
+        line.set_color(t.ln, color.new(i_colBull, tooFar ? 100 : 0))

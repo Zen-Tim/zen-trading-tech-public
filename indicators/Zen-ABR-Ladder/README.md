@@ -1,10 +1,14 @@
-# Zen ABR Ladder
+# Zen ABR Scalping Ladder
+
+**Get it on TradingView:** [Zen ABR Scalping Ladder](https://www.tradingview.com/script/eAD6znU2-Zen-ABR-Scalping-Ladder/)
 
 A TradingView Pine Script v6 sub-pane indicator that answers one question: is a scalp-sized target realistic on the timeframe you are looking at right now?
 
 It plots five Average Bar Range (ABR) lines at lookbacks 2, 4, 8, 16 and 32, and one scalp reference line at a percentage of the Average Daily Range (ADR), default 10%. Everything is drawn in price points, so the comparison is direct. A translucent grey cloud fills the gap between the scalp line and the ABR lines, and darkens where the lines agree.
 
 ABR is not standard terminology. It is the average of the bar range (high minus low) over the last N bars, and it is the ruler used across the Zen indicator suite. ADR is the same idea on the daily bar.
+
+Note on naming: the TradingView publication is titled **Zen ABR Scalping Ladder**. The script's own chart title, set inside the source, is `Zen ABR Ladder v2.1`. Same indicator.
 
 ## What it does
 
@@ -56,9 +60,11 @@ The darker the grey, the more of the ABR lookbacks agree.
 2. In TradingView, open the **Pine Editor**, paste into a new script
 3. Save and add to chart. It opens in its own pane below price.
 
+Or add it straight from the [TradingView script page](https://www.tradingview.com/script/eAD6znU2-Zen-ABR-Scalping-Ladder/).
+
 ## Version History
 
-- **v2.1 (2026-09-13):** Points only, unit-mode dropdown removed. Pane cap on by default at 2x the scalp line. ABR 2 now leaves the pane entirely when switched off.
+- **v2.1 (2026-09-13):** Points only, unit-mode dropdown removed. Pane cap on by default at 2x the scalp line. ABR 2 now leaves the pane entirely when switched off. Published to TradingView as Zen ABR Scalping Ladder.
 - **v2.0 (2026-09-13):** Added a percent-of-ADR unit mode. Withdrawn in v2.1.
 - **v1.9 (2026-09-13):** Default view set to grey cloud, grey ABR 8, grey scalp line.
 - **v1.8 (2026-09-13):** Line switches hide colour only, so the cloud survives with every line switched off.

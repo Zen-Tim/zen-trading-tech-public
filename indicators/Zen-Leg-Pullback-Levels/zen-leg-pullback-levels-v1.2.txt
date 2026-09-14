@@ -1,0 +1,214 @@
+// © Zen_Tim_Trades
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//
+// Zen Leg Pullback Levels v1.2 · 20260913
+// Tim Fairweather · Zen Trading Tech
+//
+// Draws pullback levels on every completed leg -- 6 customizable slots.
+// Leg detection copies UUBW v4's walk_legs (Scripts/legs_compute.py) bar for bar:
+// a threshold-reversal walk, threshold = k x prior-day ADR, reset each new day.
+//
+// v1.2  20260913  ADR lookback default 8, not 14, to match the UUBW threshold
+//                 (0.15 x the prior day's 8-day average range).
+//                 Level lines now run through to the confirm bar, so a level is
+//                 still in front of price when price pulls back into it. The old
+//                 fixed-length behaviour is the "Extend level to confirm bar"
+//                 toggle switched off.
+//                 Licence and attribution header added.
+// v1.1  20260910  Six level slots, zigzag and leg-size labels, info box.
+//@version=6
+indicator("Zen Leg Pullback Levels", shorttitle="ZenLegPB", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ---------------- Inputs ----------------
+grpLeg = "Leg detection"
+adrLen = input.int(8, "ADR lookback (days)", group=grpLeg, minval=1, tooltip="How many prior days go into the average day range. 8 matches the UUBW v4 threshold, which uses the prior day's 8-day average.")
+kMult  = input.float(0.15, "Leg threshold (x prior ADR)", step=0.01, minval=0.01, group=grpLeg, tooltip="0.15 is your usual default from the UUBW day-chart work.")
+
+// A level's % is how much of the leg has been given back, measured from the
+// leg's far end -- 50% is the midpoint, 66% gives back two-thirds, and so on.
+grpLvl = "Pullback levels"
+lvl1On  = input.bool(true,  "Level 1 (%)", inline="l1", group=grpLvl)
+lvl1Pct = input.float(50.0, "",            inline="l1", group=grpLvl, minval=1, maxval=99)
+lvl2On  = input.bool(true,  "Level 2 (%)", inline="l2", group=grpLvl)
+lvl2Pct = input.float(66.0, "",            inline="l2", group=grpLvl, minval=1, maxval=99)
+lvl3On  = input.bool(true,  "Level 3 (%)", inline="l3", group=grpLvl)
+lvl3Pct = input.float(75.0, "",            inline="l3", group=grpLvl, minval=1, maxval=99)
+lvl4On  = input.bool(false, "Level 4 (%)", inline="l4", group=grpLvl)
+lvl4Pct = input.float(25.0, "",            inline="l4", group=grpLvl, minval=1, maxval=99)
+lvl5On  = input.bool(false, "Level 5 (%)", inline="l5", group=grpLvl)
+lvl5Pct = input.float(33.0, "",            inline="l5", group=grpLvl, minval=1, maxval=99)
+lvl6On  = input.bool(false, "Level 6 (%)", inline="l6", group=grpLvl)
+lvl6Pct = input.float(20.0, "",            inline="l6", group=grpLvl, minval=1, maxval=99)
+
+lineBars  = input.int(3, "Line length (bars)", minval=1, maxval=50, group=grpLvl, tooltip="How many bars the level line stretches past its start point.")
+extendCfm = input.bool(true, "Extend level to confirm bar", group=grpLvl, tooltip="A leg is only confirmed once price has pulled back a full threshold, which can take several bars. On, the line runs from the leg's end through to the confirm bar plus the line length, so the level is still in front of price. Off gives a fixed-length line starting at the leg's end, which can sit entirely in the past.")
+colUpLvl = input.color(color.blue, "Level color, up leg", group=grpLvl)
+colDnLvl = input.color(color.red,  "Level color, down leg", group=grpLvl)
+
+grpDisp = "Display"
+legsShown   = input.int(10, "Legs to show at once", minval=1, maxval=30, group=grpDisp)
+showZigzag  = input.bool(false, "Show the leg zigzag", group=grpDisp)
+showLegSize = input.bool(false, "Label each leg's point size", group=grpDisp)
+showInfo    = input.bool(true, "Show threshold info box", group=grpDisp)
+colUp = input.color(color.new(color.green, 50), "Up-leg zigzag color", group=grpDisp)
+colDn = input.color(color.new(color.red, 50),   "Down-leg zigzag color", group=grpDisp)
+
+// ---------------- ADR, using only completed prior days ----------------
+// ta.sma(...)[1] means: the N-day average as of the LAST CLOSED day, never today's
+// still-forming range. Same rule as the UUBW app ("denominator is the prior day's ABR").
+adrPrior = request.security(syminfo.tickerid, "D", ta.sma(high - low, adrLen)[1], lookahead=barmerge.lookahead_off)
+thr = kMult * adrPrior
+
+// ---------------- Day state (the walk resets every session) ----------------
+var float piv    = na   // start of the current/next leg
+var float ext    = na   // running extreme of the leg in progress
+var int   dirn   = 0    // 0 = no leg yet today, 1 = up leg, -1 = down leg
+var int   pivBar = na
+var int   extBar = na
+
+bool newDay = ta.change(time("D")) != 0
+if newDay
+    piv    := open
+    ext    := open
+    pivBar := bar_index
+    extBar := bar_index
+    dirn   := 0
+
+// ---------------- Storage for what's on the chart ----------------
+// One line array per level slot, so "legs to show" trims each slot on its own.
+var line[]  lvl1Lines = array.new_line()
+var line[]  lvl2Lines = array.new_line()
+var line[]  lvl3Lines = array.new_line()
+var line[]  lvl4Lines = array.new_line()
+var line[]  lvl5Lines = array.new_line()
+var line[]  lvl6Lines = array.new_line()
+var line[]  zzLines   = array.new_line()
+var label[] szLabels  = array.new_label()
+var float   lastLvl1  = na
+var float   lastLvl2  = na
+var float   lastLvl3  = na
+var float   lastLvl4  = na
+var float   lastLvl5  = na
+var float   lastLvl6  = na
+
+f_trimLines(arr, maxN) =>
+    while array.size(arr) > maxN
+        line.delete(array.shift(arr))
+
+f_trimLabels(arr, maxN) =>
+    while array.size(arr) > maxN
+        label.delete(array.shift(arr))
+
+// Draws one level line if its slot is switched on, and always hands back the
+// level's price so the caller can update the matching "last" variable for alerts,
+// whether or not the line itself was drawn.
+f_drawLevel(on, pct, legEndBar, legStart, legSize, lvlColor, arr) =>
+    level = legStart + ((100.0 - pct) / 100.0) * legSize
+    if on
+        // A leg is confirmed some bars after it ends. Running the line through to
+        // the confirm bar keeps the level in front of price instead of behind it.
+        xRight = (extendCfm ? math.max(legEndBar, bar_index) : legEndBar) + lineBars
+        ln = line.new(legEndBar, level, xRight, level, color=lvlColor, style=line.style_solid, width=1)
+        array.push(arr, ln)
+        f_trimLines(arr, legsShown)
+    level
+
+// Called every time a leg completes. legStart/legEnd are the leg's own
+// start and end price; legStartBar/legEndBar are where those happened.
+// A Pine function can't change a variable declared outside it, so this
+// hands the six level prices back instead of setting them itself --
+// the caller below does the assigning.
+f_recordLeg(legStartBar, legEndBar, legStart, legEnd) =>
+    legSize = legEnd - legStart
+    // Up leg -> blue, down leg -> red. A fixed-length segment, not extend.right --
+    // x2 must differ from x1 or a zero-length line has no direction to draw in,
+    // which is what drew these vertical instead of flat the first time.
+    lvlColor = legSize >= 0 ? colUpLvl : colDnLvl
+
+    l1 = f_drawLevel(lvl1On, lvl1Pct, legEndBar, legStart, legSize, lvlColor, lvl1Lines)
+    l2 = f_drawLevel(lvl2On, lvl2Pct, legEndBar, legStart, legSize, lvlColor, lvl2Lines)
+    l3 = f_drawLevel(lvl3On, lvl3Pct, legEndBar, legStart, legSize, lvlColor, lvl3Lines)
+    l4 = f_drawLevel(lvl4On, lvl4Pct, legEndBar, legStart, legSize, lvlColor, lvl4Lines)
+    l5 = f_drawLevel(lvl5On, lvl5Pct, legEndBar, legStart, legSize, lvlColor, lvl5Lines)
+    l6 = f_drawLevel(lvl6On, lvl6Pct, legEndBar, legStart, legSize, lvlColor, lvl6Lines)
+
+    if showZigzag
+        zz = line.new(legStartBar, legStart, legEndBar, legEnd, color=(legSize >= 0 ? colUp : colDn), width=2)
+        array.push(zzLines, zz)
+        f_trimLines(zzLines, legsShown)
+
+    if showLegSize
+        midBarX = math.round((legStartBar + legEndBar) / 2)
+        sizeTxt = (legSize >= 0 ? "+" : "-") + str.tostring(math.abs(legSize), "#.##")
+        lbl = label.new(int(midBarX), (legStart + legEnd) / 2, sizeTxt, style=label.style_label_left, color=color.new(color.white, 15), textcolor=color.black, size=size.small)
+        array.push(szLabels, lbl)
+        f_trimLabels(szLabels, legsShown)
+
+    [l1, l2, l3, l4, l5, l6]
+
+// ---------------- The walk itself (matches walk_legs exactly) ----------------
+if dirn == 1
+    if high > ext
+        ext    := high
+        extBar := bar_index
+    else if (ext - low) >= thr
+        [a1, a2, a3, a4, a5, a6] = f_recordLeg(pivBar, extBar, piv, ext)
+        lastLvl1 := a1
+        lastLvl2 := a2
+        lastLvl3 := a3
+        lastLvl4 := a4
+        lastLvl5 := a5
+        lastLvl6 := a6
+        piv    := ext
+        pivBar := extBar
+        ext    := low
+        extBar := bar_index
+        dirn   := -1
+else if dirn == -1
+    if low < ext
+        ext    := low
+        extBar := bar_index
+    else if (high - ext) >= thr
+        [a1, a2, a3, a4, a5, a6] = f_recordLeg(pivBar, extBar, piv, ext)
+        lastLvl1 := a1
+        lastLvl2 := a2
+        lastLvl3 := a3
+        lastLvl4 := a4
+        lastLvl5 := a5
+        lastLvl6 := a6
+        piv    := ext
+        pivBar := extBar
+        ext    := high
+        extBar := bar_index
+        dirn   := 1
+else
+    if (high - piv) >= thr
+        dirn   := 1
+        ext    := high
+        extBar := bar_index
+    else if (piv - low) >= thr
+        dirn   := -1
+        ext    := low
+        extBar := bar_index
+
+// ---------------- Optional alerts: price reaching the last leg's levels ----------------
+// ta.cross() has to run on every bar in plain top-level code, never inside an
+// if-branch, or its own memory of "which side was price on" goes stale.
+crossedLvl1 = ta.cross(close, lastLvl1)
+crossedLvl2 = ta.cross(close, lastLvl2)
+crossedLvl3 = ta.cross(close, lastLvl3)
+crossedLvl4 = ta.cross(close, lastLvl4)
+crossedLvl5 = ta.cross(close, lastLvl5)
+crossedLvl6 = ta.cross(close, lastLvl6)
+alertcondition(lvl1On and not na(lastLvl1) and crossedLvl1, title="Price hit Level 1", message="Price crossed Level 1 of the last leg")
+alertcondition(lvl2On and not na(lastLvl2) and crossedLvl2, title="Price hit Level 2", message="Price crossed Level 2 of the last leg")
+alertcondition(lvl3On and not na(lastLvl3) and crossedLvl3, title="Price hit Level 3", message="Price crossed Level 3 of the last leg")
+alertcondition(lvl4On and not na(lastLvl4) and crossedLvl4, title="Price hit Level 4", message="Price crossed Level 4 of the last leg")
+alertcondition(lvl5On and not na(lastLvl5) and crossedLvl5, title="Price hit Level 5", message="Price crossed Level 5 of the last leg")
+alertcondition(lvl6On and not na(lastLvl6) and crossedLvl6, title="Price hit Level 6", message="Price crossed Level 6 of the last leg")
+
+// ---------------- Info box, so you can check the threshold matches the day-chart ----------------
+if showInfo and barstate.islast
+    var table infoBox = table.new(position.top_right, 1, 2, bgcolor=color.new(color.white, 10), border_width=1, border_color=color.gray)
+    table.cell(infoBox, 0, 0, "Prior ADR: " + str.tostring(adrPrior, "#.##"), text_color=color.black, text_size=size.small)
+    table.cell(infoBox, 0, 1, "Leg thr (" + str.tostring(kMult, "#.##") + "x): " + str.tostring(thr, "#.##") + " pts", text_color=color.black, text_size=size.small)
