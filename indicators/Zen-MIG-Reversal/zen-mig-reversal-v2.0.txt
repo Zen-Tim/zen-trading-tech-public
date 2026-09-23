@@ -1,0 +1,74 @@
+//@version=5
+indicator(title="Zen MIG Reversal v2.0 · 20260923", shorttitle="Zen MIG Reversal", overlay=true, max_boxes_count=500)
+
+// =====================================================
+// Moving Average
+// =====================================================
+maType   = input.string("EMA", title="MA Type", options=["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group="Moving Average")
+maLength = input.int(20, title="MA Length", minval=1, group="Moving Average")
+showMA   = input.bool(true, title="Show MA Line", group="Moving Average")
+
+ma(source, length, type) =>
+    switch type
+        "SMA"        => ta.sma(source, length)
+        "EMA"        => ta.ema(source, length)
+        "SMMA (RMA)" => ta.rma(source, length)
+        "WMA"        => ta.wma(source, length)
+        "VWMA"       => ta.vwma(source, length)
+
+maLine = ma(close, maLength, maType)
+plot(showMA ? maLine : na, title="MA", color=color.blue)
+
+// =====================================================
+// Signal Settings
+// =====================================================
+gapMode     = input.string("Micro gap (Brooks)", title="Gap Rule", options=["Micro gap (Brooks)", "Visible gap (strict)"], group="Signal")
+maTest      = input.string("Tail beyond MA", title="MA Test", options=["Tail beyond MA", "Close beyond MA", "Whole bar beyond MA"], group="Signal")
+confirmOnly = input.bool(true, title="Signal on bar close only", group="Signal")
+
+// =====================================================
+// Display
+// =====================================================
+showArrows = input.bool(true,  title="Show Arrows", group="Display")
+showBoxes  = input.bool(true,  title="Show Gap Boxes", group="Display")
+bullCol    = input.color(color.blue, title="Bull Colour", group="Display")
+bearCol    = input.color(color.red,  title="Bear Colour", group="Display")
+
+// =====================================================
+// Logic
+// =====================================================
+isBull(i) => close[i] > open[i]
+isBear(i) => close[i] < open[i]
+
+bullBars = isBull(0) and isBull(1) and isBull(2)
+bearBars = isBear(0) and isBear(1) and isBear(2)
+
+bullGap = gapMode == "Visible gap (strict)" ? (low > high[2] and low[1] > high[2]) : low > high[2]
+bearGap = gapMode == "Visible gap (strict)" ? (high < low[2] and high[1] < low[2]) : high < low[2]
+
+bullMA = maTest == "Close beyond MA" ? close < maLine : maTest == "Whole bar beyond MA" ? high < maLine : low < maLine
+bearMA = maTest == "Close beyond MA" ? close > maLine : maTest == "Whole bar beyond MA" ? low > maLine : high > maLine
+
+confirmed = not confirmOnly or barstate.isconfirmed
+
+bullReversal = bullBars and bullGap and bullMA and confirmed
+bearReversal = bearBars and bearGap and bearMA and confirmed
+
+// =====================================================
+// Drawing
+// =====================================================
+if bullReversal and showBoxes
+    box.new(left=bar_index[2], right=bar_index, top=low, bottom=high[2], border_color=bullCol, bgcolor=color.new(bullCol, 80))
+
+if bearReversal and showBoxes
+    box.new(left=bar_index[2], right=bar_index, top=low[2], bottom=high, border_color=bearCol, bgcolor=color.new(bearCol, 80))
+
+plotshape(showArrows and bullReversal, title="Bull Arrow", style=shape.arrowup, location=location.belowbar, color=bullCol, size=size.small)
+plotshape(showArrows and bearReversal, title="Bear Arrow", style=shape.arrowdown, location=location.abovebar, color=bearCol, size=size.small)
+
+// =====================================================
+// Alerts
+// =====================================================
+alertcondition(bullReversal, title="Bull MIG Reversal", message="Bull MIG Reversal — {{ticker}} {{interval}} @ {{close}}")
+alertcondition(bearReversal, title="Bear MIG Reversal", message="Bear MIG Reversal — {{ticker}} {{interval}} @ {{close}}")
+alertcondition(bullReversal or bearReversal, title="Any MIG Reversal", message="MIG Reversal — {{ticker}} {{interval}} @ {{close}}")

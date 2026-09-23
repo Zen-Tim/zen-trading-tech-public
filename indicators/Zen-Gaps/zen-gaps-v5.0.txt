@@ -1,0 +1,150 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Zen_Tim_Trades
+
+//@version=5
+indicator("Zen Gaps v5.0 · 20260923", shorttitle="Zen Gaps v5.0", overlay = true, max_labels_count=100, max_lines_count = 100)
+
+
+
+bool plotTickGaps = input.string("On", "Show Tick Gaps ?", options = ["On", "Off"]) == "On"
+bool plotUrgentBars = input.string("On", "Show Urgent Bars ?", options = ["On", "Off"]) == "On"
+bool plotClarityBars = input.string("On", "Show Clarity?", options = ["On", "Off"]) == "On"
+
+i_bullIBSfactor = input.int(69, "Bull IBS Threshold", minval = 51, maxval = 99)
+I_bearIBSfactor = input.int(31, "Bear INS Threshold", minval = 1, maxval = 49)
+UrgencyBullThreshold  = input(title = "Urgency Bull %", defval = 15)
+UrgencyBearThreshold  = input(title = "Urgency Bear %", defval = 15)
+BodyRangeThreshold  = input(title = "Body Range Limit", defval = 51)
+
+//Set Input Colours
+bullGapBGColor = input(color.rgb(76, 175, 79, 95), 'Bullish Gap Background')
+bullGapBorderColor = input(color.rgb(76, 175, 79, 100), 'Bullish Gap Border')
+strongBullGapBGColor = input(color.rgb(55, 188, 255, 80), 'Strongly Bullish Gap Background')
+strongBullGapBorderColor = input(color.rgb(66, 116, 187, 100), 'Strongly Bullish Gap Border')
+bearGapBGColor = input(color.rgb(255, 82, 82, 92), 'Bearish Gap Background')
+bearGapBorderColor = input(color.rgb(255, 82, 82, 100), 'Bearish Gap Border')
+strongBearGapBGColor = input(color.rgb(55, 188, 255, 80), 'Strongly Bearish Gap Background')
+strongBearGapBorderColor = input(color.rgb(66, 116, 187, 100), 'Strongly Bearish Gap Border')
+
+//bull and bear bar
+bullBar = close > open
+bearBar = open > close
+priorBullBar = close[2] > open[2]
+priorBearBar = open[2] > close[2]
+
+//Determine Gap direction
+bullGap = low > high[2] 
+bearGap = high < low[2]
+
+//Determine Gap Strength
+currentbarStatus = (close >= open ? 1 : 0)
+priorbarStatus = (close[2] >= open[2] ? 1 : 0)
+isStrongGap = currentbarStatus == priorbarStatus ? 1 : 0
+
+
+
+
+if bullGap 
+    if isStrongGap > 0
+        if bullBar
+            if priorBullBar
+                strongbullGapDraw = box.new(left = bar_index[2], top = low, right = bar_index, bottom = high[2], border_color = strongBullGapBorderColor, border_width = 2, border_style = line.style_solid, bgcolor = strongBullGapBGColor)
+    else 
+        bullGapDraw = box.new(left = bar_index[2], top = low, right = bar_index, bottom = high[2], border_color = bullGapBorderColor, border_width = 2, border_style = line.style_solid, bgcolor = bullGapBGColor)
+
+if bearGap
+    if  isStrongGap > 0
+        if bearBar
+            if priorBearBar
+                strongbearGapDraw = box.new(left = bar_index[2], top = low[2], right = bar_index, bottom = high, border_color = strongBearGapBorderColor, border_width = 2, border_style = line.style_solid, bgcolor = strongBearGapBGColor)
+    else
+        bearGapdraw = box.new(left = bar_index[2], top = low[2], right = bar_index, bottom = high, border_color = bearGapBorderColor, border_width = 2, border_style = line.style_solid, bgcolor = bearGapBGColor)
+
+//Tick Gaps
+bulltickgap = open > close[1]
+beartickgap = open < close[1]
+
+showbulltickgap = bulltickgap and plotTickGaps == true
+showbeartickgap = beartickgap and plotTickGaps == true
+
+//
+
+var line lineBull = na
+var line lineBear = na
+var int lineBullBar = na
+var int lineBearBar = na
+
+if showbulltickgap
+    //line.delete(lineBull)
+    lineBull := line.new(x1=bar_index - 1, y1=open, x2=bar_index + 2, y2=open, color=color.green)
+    lineBullBar := bar_index
+
+if showbeartickgap
+   // line.delete(lineBear)
+    lineBear := line.new(x1=bar_index - 1, y1=open, x2=bar_index + 2, y2=open, color=color.red)
+    lineBearBar := bar_index
+
+
+
+//
+
+//IBS
+ibsBullThreshold  = input(title = "IBS Bull", defval = 31)
+ibsBearThreshold  = input(title = "IBS Bear", defval = 69)
+
+isPerfectdoji = close == open
+
+iBS = ((close - low) / (high - low)) * 100
+
+//IBS qualifier
+
+bullclose_ok_ibs = bullBar and iBS > i_bullIBSfactor
+bearclose_ok_ibs = bearBar and iBS < I_bearIBSfactor
+
+//Show urgent bars
+
+bar_range = math.abs(high - low)
+isbull = close > open
+isbear = close < open
+body_size = isbull? math.abs(close-open) : isbear ? math.abs(open-close) : na
+bodyoverrange = body_size / bar_range
+
+toptail = isbull? high - close : isbear? high - open : na
+bottomtail = isbull? open - low : isbear? close - low : na
+toptailoverbarrange = toptail / bar_range
+bottomtailoverbarrange = bottomtail / bar_range
+bigenoughbody = bodyoverrange > (BodyRangeThreshold / 100)
+
+
+urgentbull = isbull and bottomtailoverbarrange < (UrgencyBullThreshold / 100) and bigenoughbody
+urgentbear = isbear and toptailoverbarrange < (UrgencyBearThreshold / 100) and bigenoughbody
+
+ploturgentbull = urgentbull and plotUrgentBars == true
+ploturgentbear = urgentbear and plotUrgentBars == true
+
+
+plotshape(ploturgentbull, "Urgent bulls", style=shape.arrowup, location=location.belowbar, color=color.rgb(33, 149, 243, 47))
+
+plotshape(ploturgentbear, "Urgent bears", style=shape.arrowdown, location=location.abovebar, color=color.rgb(255, 82, 82, 47))
+
+ploturgentclarity_bl = ploturgentbull and bulltickgap and plotClarityBars == true
+ploturgentclarity_br = ploturgentbear and beartickgap and plotClarityBars == true
+
+barcolor(ploturgentclarity_bl? color.blue : ploturgentclarity_br? color.red : na)
+
+//Avg Bar Range Lookback
+
+lookbackPeriod = input(8, "Lookback Period")
+
+averageBarRange = math.sum(bar_range, lookbackPeriod) / lookbackPeriod
+scalp_trend = averageBarRange * 0.8
+scalp_countertrend = averageBarRange * 0.8 * 0.5
+
+//Plots
+//plot(iBS, "ibs" )
+//plot(bar_range, "bar range")
+//plot(body_size, "body size")
+//plot(bodyoverrange, "body %")
+//plot(averageBarRange, "Average Bar Range")
+//plot(scalp_trend, "scalp trend")
+//plot(scalp_countertrend, "scalp countertrend")

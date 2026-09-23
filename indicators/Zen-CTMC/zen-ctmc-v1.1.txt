@@ -1,0 +1,62 @@
+//@version=6
+indicator("Zen EMA Pullback Patterns v1.1 · 20260923", shorttitle="Zen EMA PB", overlay=true)
+
+// ── Inputs ─────────────────────────────────────────────
+emaLen     = input.int(20, "EMA length", minval=1)
+emaSrc     = input.source(close, "EMA source")
+fullMC     = input.bool(false, "Full micro channel (bear: lower lows too / bull: higher highs too)")
+everyBar   = input.bool(false, "Mark every bar that completes a pattern (off = first bar only)")
+showEma    = input.bool(true, "Show EMA")
+showLabels = input.bool(false, "Show labels")
+colorBars  = input.bool(true, "Colour signal bar (bear pattern = red, bull pattern = green)")
+
+// ── Core ───────────────────────────────────────────────
+ema   = ta.ema(emaSrc, emaLen)
+bear  = close < open          // doji (close == open) is neutral and breaks the run
+bull  = close > open
+above = close > ema
+below = close < ema
+
+// ── 3-bar pattern: 3 bear bars, all 3 closes above EMA / 3 bull bars, all 3 closes below EMA
+bear3 = bear and bear[1] and bear[2] and above and above[1] and above[2]
+bull3 = bull and bull[1] and bull[2] and below and below[1] and below[2]
+
+// ── 4-bar micro channel: 3 lower highs, all 4 closes above EMA / 3 higher lows, all 4 closes below EMA
+lowerHighs  = high < high[1] and high[1] < high[2] and high[2] < high[3]
+lowerLows   = low  < low[1]  and low[1]  < low[2]  and low[2]  < low[3]
+higherLows  = low  > low[1]  and low[1]  > low[2]  and low[2]  > low[3]
+higherHighs = high > high[1] and high[1] > high[2] and high[2] > high[3]
+above4 = above and above[1] and above[2] and above[3]
+below4 = below and below[1] and below[2] and below[3]
+
+bearMC = lowerHighs and (not fullMC or lowerLows) and above4
+bullMC = higherLows and (not fullMC or higherHighs) and below4
+
+// ── First-bar-only filter, confirmed bars only
+fire(c) => (everyBar ? c : c and not c[1]) and barstate.isconfirmed
+sBear3  = fire(bear3)
+sBull3  = fire(bull3)
+sBearMC = fire(bearMC)
+sBullMC = fire(bullMC)
+
+// ── Plots (split so shapes never overlap on the same bar)
+plot(showEma ? ema : na, "EMA", color=color.new(color.blue, 0), linewidth=2)
+
+// Signal bar colour: bar 3 of the 3-bar pattern, bar 4 of the micro channel
+bearSig = sBear3 or sBearMC
+bullSig = sBull3 or sBullMC
+barcolor(colorBars and bearSig ? color.red : colorBars and bullSig ? color.green : na, title="Signal bar colour")
+
+plotshape(showLabels and sBear3 and not sBearMC, "Bear 3 above EMA",  shape.triangledown, location.abovebar, color.new(color.red, 0),    text="3",    textcolor=color.red,    size=size.small)
+plotshape(showLabels and sBearMC and not sBear3, "Bear MC above EMA", shape.triangledown, location.abovebar, color.new(color.orange, 0), text="MC",   textcolor=color.orange, size=size.small)
+plotshape(showLabels and sBear3 and sBearMC,     "Bear 3 + MC",       shape.triangledown, location.abovebar, color.new(color.maroon, 0), text="3+MC", textcolor=color.maroon, size=size.small)
+
+plotshape(showLabels and sBull3 and not sBullMC, "Bull 3 below EMA",  shape.triangleup, location.belowbar, color.new(color.green, 0), text="3",    textcolor=color.green, size=size.small)
+plotshape(showLabels and sBullMC and not sBull3, "Bull MC below EMA", shape.triangleup, location.belowbar, color.new(color.teal, 0),  text="MC",   textcolor=color.teal,  size=size.small)
+plotshape(showLabels and sBull3 and sBullMC,     "Bull 3 + MC",       shape.triangleup, location.belowbar, color.new(color.olive, 0), text="3+MC", textcolor=color.olive, size=size.small)
+
+// ── Alerts
+alertcondition(sBear3,  "Bear 3 above EMA",  "3 bear bars closed above the EMA")
+alertcondition(sBull3,  "Bull 3 below EMA",  "3 bull bars closed below the EMA")
+alertcondition(sBearMC, "Bear MC above EMA", "Bear micro channel above the EMA")
+alertcondition(sBullMC, "Bull MC below EMA", "Bull micro channel below the EMA")

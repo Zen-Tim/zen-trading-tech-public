@@ -2,7 +2,7 @@
 
 Trading indicators and tools for traders to use in their own research and execution. Each indicator lives in its own folder with the source file and a README explaining what it does, how to install it, and how to read its output.
 
-Sixteen indicators, listed A to Z below.
+Twenty-three indicators, listed A to Z below.
 
 ---
 
@@ -44,9 +44,29 @@ A TradingView Pine Script v6 indicator that projects 0.5x and 1x ABR levels abov
 
 A TradingView Pine Script v5 indicator that detects big bars (range greater than a configurable multiple of the 8-bar ABR, default 1.6x) and draws two midpoints on them — the high-low mid and the extreme-close mid — plus optional 0.33 / 0.66 fractional levels. Each set can be displayed as dotted lines or a translucent box, with independent bull/bear colours and separate toggles for each direction.
 
+### [Zen Breakout Follow Through](./Zen-Breakout-Follow-Through)
+
+A TradingView Pine Script v6 indicator that marks a four-bar sequence: a breakout bar, a follow-through bar in the same direction, and the entry level beyond the follow-through bar. A practice tool for telling apart three states that look alike in real time — a breakout bar on its own, a breakout with follow-through, and an actual entry.
+
+### [Zen CTMC — EMA Pullback Patterns](./Zen-CTMC)
+
+A TradingView Pine Script v6 indicator that marks two pullback patterns on the wrong side of a 20-bar EMA: three same-colour bars closing against the EMA side, and a four-bar micro channel (three lower highs above the EMA, or three higher lows below it). The signal bar is coloured red for bear, green for bull, with optional labels and four alerts.
+
+### [Zen Gaps](./Zen-Gaps)
+
+A TradingView Pine Script v5 indicator that boxes gaps between a bar and the bar two back, with strong gaps (both bars the same colour) shaded apart from normal gaps. Also marks tick gaps between one bar's close and the next bar's open, urgent bars (big body, almost no tail on the opening side), and clarity bars (an urgent bar that also opened with a tick gap). Each part has its own switch.
+
 ### [Zen Inside Bar — Inside Bar Highlighter](./Zen-Inside-Bar)
 
 A TradingView Pine Script v6 indicator that highlights inside bars — bars whose high and low both sit within the prior bar's range — with a configurable colour, plus a built-in alert condition for when one prints.
+
+### [Zen Leg Pullback Levels](./Zen-Leg-Pullback-Levels)
+
+A TradingView Pine Script v6 indicator that draws pullback levels on every completed leg, with six level slots, each with its own percentage and switch (defaults 50%, 66% and 75% on). A leg ends when price turns back by 0.15x the prior day's average day range, reset each new day, matching the leg walk used in the UUBW v4 research app. One alert per level.
+
+### [Zen MIG Reversal](./Zen-MIG-Reversal)
+
+A TradingView Pine Script v5 indicator that marks three same-colour bars in a row with a gap between the first and third bar, forming on the far side of the moving average. Two gap rules (micro gap or strict), three moving average tests, a shaded gap box, arrows and alerts.
 
 ### [Zen OOH / OOL — Open on High / Open on Low](./Zen-OOH-OOL)
 
@@ -57,6 +77,14 @@ A TradingView Pine Script v5 indicator that flags sessions where the **first bar
 ### [Zen Open CSC Bars — Consecutive Same-Colour Bars](./Zen-Open-CSC-Bars)
 
 A TradingView Pine Script v5 indicator that detects a run of N same-direction bars from the session open and measures the resulting spike two ways: the Consecutive Spike, the range of the first two bars, computed every day whether or not a run qualifies; and the Total Spike, the full range of the whole run, printed once the streak breaks. Labels, bar colouring and alerts on qualifying runs. Both spike sizes reach the Data Window for external logging.
+
+### [Zen REMA — Rainbow EMA](./Zen-REMA)
+
+A TradingView Pine Script v6 indicator that draws a 20-bar EMA coloured by its slope and by where the last two bars closed. Optional acceleration lines, an Always In marker from two closes past the EMA, and MIG reversal labels against the Always In side. Slope angle, Always In state and two scalp sizes show in the Data Window.
+
+### [Zen Swing Trendlines](./Zen-Swing-Trendlines)
+
+A TradingView Pine Script indicator that joins swing points into trendlines and projects them forward: bear lines from an older swing high to a newer, lower swing high, and bull lines from an older swing low to a newer, higher swing low. Swing timing follows the Zen Swing 123 rule from Perry Kaufman's *Trading Systems and Methods*. Built as a scalp-zone tool: a line either holds or fails, and a failure is a second entry.
 
 ### [Zen TSaM Swing Chart · Multi-Mode 2/3/4](./Zen-TSaM-Swing-Chart)
 

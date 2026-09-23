@@ -1,0 +1,86 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Zen_Tim_Trades
+
+//@version=6
+indicator('Zen rEMA v6.0 · 20260923', shorttitle = 'Zen rEMA v6.0', overlay = true, max_lines_count = 300, max_labels_count = 200)
+
+// ─── Inputs ───────────────────────────────────────────────
+grpMA = 'Moving Average'
+len    = input.int(20, 'Length', minval = 1, group = grpMA)
+src    = input.source(close, 'Source', group = grpMA)
+useEma = input.bool(true, 'Use EMA? (Off = SMA)', group = grpMA)
+offset = input.int(0, 'Offset', minval = -500, maxval = 500, group = grpMA)
+
+grpAng = 'Slope'
+i_lookback   = input.int(3, 'Lookback', minval = 1, group = grpAng)
+i_atrPeriod  = input.int(10, 'ATR Period', minval = 1, group = grpAng)
+acceleration = input.int(10, 'Acceleration angle', minval = 1, group = grpAng)
+showAccel    = input.bool(false, 'Show Acceleration?', group = grpAng)
+
+grpSig = 'Signals'
+showAlwaysIn = input.bool(false, 'Show Always In from MA?', group = grpSig)
+showMIG      = input.bool(false, 'Show MIG Reversals?', group = grpSig)
+ignoreBars   = input.int(2, 'Bars to ignore at start of day', minval = 0, group = grpSig)
+
+grpScalp = 'Scalp size'
+scalpLookback = input.int(8, 'Avg bar range lookback', minval = 1, group = grpScalp)
+
+// ─── Moving average and slope ─────────────────────────────
+ma    = useEma ? ta.ema(src, len) : ta.sma(src, len)
+angle = math.todegrees(math.atan((ma - ma[i_lookback]) / ta.atr(i_atrPeriod) / i_lookback))
+
+// ─── Bar types ────────────────────────────────────────────
+isBull = close > open
+isBear = close < open
+
+// Two bars in a row closing on the same side of the MA (each bar vs its own MA value)
+twoBullCloseAbove = isBull and isBull[1] and close > ma and close[1] > ma[1]
+twoBearCloseBelow = isBear and isBear[1] and close < ma and close[1] < ma[1]
+
+// ─── New day and ignore window ────────────────────────────
+newDay = timeframe.isintraday and timeframe.change('D')
+var int barsIntoDay = 0
+barsIntoDay := newDay ? 0 : barsIntoDay + 1
+inIgnore = timeframe.isintraday and barsIntoDay < ignoreBars
+
+// ─── Always In state ──────────────────────────────────────
+ailSwitch = twoBullCloseAbove and not twoBullCloseAbove[1] and not inIgnore
+aisSwitch = twoBearCloseBelow and not twoBearCloseBelow[1] and not inIgnore
+
+var int alwaysIn = 0
+if newDay
+    alwaysIn := 0
+if ailSwitch
+    alwaysIn := 1
+else if aisSwitch
+    alwaysIn := -1
+
+plotshape(showAlwaysIn and ailSwitch, title = 'AIL switch', style = shape.triangleup,   location = location.belowbar, color = color.blue)
+plotshape(showAlwaysIn and aisSwitch, title = 'AIS switch', style = shape.triangledown, location = location.abovebar, color = color.red)
+
+// ─── MIG reversal ─────────────────────────────────────────
+// Gap between this bar and the bar two back, with both bars the same colour
+migBull = low > high[2] and isBull[2] and isBull
+migBear = high < low[2] and isBear[2] and isBear
+
+if showMIG and not inIgnore and migBull and alwaysIn < 0
+    label.new(bar_index, low, 'MIG Rev', style = label.style_label_up, color = color.white, textcolor = color.black, size = size.small)
+if showMIG and not inIgnore and migBear and alwaysIn > 0
+    label.new(bar_index, high, 'MIG Rev', style = label.style_label_down, color = color.white, textcolor = color.black, size = size.small)
+
+// ─── MA line ──────────────────────────────────────────────
+maColor = angle > 0 ? (twoBullCloseAbove ? color.blue : color.green) : angle < 0 ? (twoBearCloseBelow ? color.red : color.orange) : #9598a1
+plot(ma, title = 'MA', color = maColor, linewidth = 1, offset = offset)
+
+// ─── Acceleration lines ───────────────────────────────────
+if showAccel and angle > acceleration
+    line.new(bar_index, ma, bar_index, high, color = color.rgb(76, 175, 79, 20), width = 1)
+if showAccel and angle < -acceleration
+    line.new(bar_index, ma, bar_index, low, color = color.rgb(255, 82, 82, 20), width = 1)
+
+// ─── Data window only (does not touch the price scale) ────
+avgBarRange = ta.sma(high - low, scalpLookback)
+plot(angle, title = 'MA Angle', display = display.data_window)
+plot(alwaysIn, title = 'Always In', display = display.data_window)
+plot(avgBarRange * 0.8, title = 'Scalp with trend', display = display.data_window)
+plot(avgBarRange * 0.4, title = 'Scalp counter-trend', display = display.data_window)
