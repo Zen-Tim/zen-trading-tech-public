@@ -3,7 +3,7 @@
 ## The question
 
 How often does the first 5-minute bar of the day session make the high of the day or the low of the day?
-Al Brooks puts it at about 20% of days.
+The commonly quoted figure is about 20% of days.
 
 ## Data
 
@@ -32,4 +32,4 @@ Al Brooks puts it at about 20% of days.
 | 2025 | 253 | 86 | 34.0% |
 | 2026 | 198 | 52 | 26.3% |
 
-Verdict: bar 1 makes the high or low of the day on 29.0% of 1,300 full FDAX sessions. The 20% claim holds.
+Verdict: bar 1 makes the high or low of the day on 29.0% of 1,300 full FDAX sessions. The figure of about 20% is too low.

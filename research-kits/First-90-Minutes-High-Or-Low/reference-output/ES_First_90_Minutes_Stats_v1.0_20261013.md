@@ -3,7 +3,7 @@
 ## The question
 
 How often is the high of the day, or the low of the day, already in by the end of the first 18 five-minute bars?
-Al Brooks puts it at about 75% of days.
+The commonly quoted figure is about 75% of days.
 
 ## Data
 
@@ -39,4 +39,4 @@ Bar 18 row in days: 2,165 of 2,683.
 | 2025 | 247 | 198 | 80.2% |
 | 2026 | 194 | 164 | 84.5% |
 
-Verdict: the high or low of the day is in by the end of bar 18 on 80.7% of 2,683 full ES sessions. The 75% claim holds.
+Verdict: the high or low of the day is in by the end of bar 18 on 80.7% of 2,683 full ES sessions. The 75% figure holds.

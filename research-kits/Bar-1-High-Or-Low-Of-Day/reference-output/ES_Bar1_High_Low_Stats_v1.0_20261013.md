@@ -3,7 +3,7 @@
 ## The question
 
 How often does the first 5-minute bar of the day session make the high of the day or the low of the day?
-Al Brooks puts it at about 20% of days.
+The commonly quoted figure is about 20% of days.
 
 ## Data
 
@@ -37,4 +37,4 @@ Al Brooks puts it at about 20% of days.
 | 2025 | 247 | 65 | 26.3% |
 | 2026 | 194 | 52 | 26.8% |
 
-Verdict: bar 1 makes the high or low of the day on 26.9% of 2,683 full ES sessions. The 20% claim holds.
+Verdict: bar 1 makes the high or low of the day on 26.9% of 2,683 full ES sessions. The figure of about 20% is too low.

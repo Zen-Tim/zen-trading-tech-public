@@ -41,7 +41,7 @@ lines = [
     "## The question",
     "",
     "How often does the ES day session trade above the Globex high or below the Globex low?",
-    "Globex is the overnight session before the day session opens. Al Brooks puts it at about 90% of days.",
+    "Globex is the overnight session before the day session opens. The commonly quoted figure is about 90% of days.",
     "",
     "## Data",
     "",
@@ -65,7 +65,7 @@ for y, x in full.groupby("year"):
     m = x.up | x.down
     lines.append(f"| {y} | {len(x)} | {int(m.sum())} | {m.mean() * 100:.1f}% |")
 share = (full.up | full.down).mean() * 100
-lines += ["", f"Verdict: the ES day session breaks at least one side of the Globex range on {share:.1f}% of {n:,} full sessions. " + ("The 90% claim holds." if share >= 90 else "Below the 90% claim.")]
+lines += ["", f"Verdict: the ES day session breaks at least one side of the Globex range on {share:.1f}% of {n:,} full sessions. " + ("The 90% figure holds." if share >= 90 else "Below the 90% figure.")]
 text = "\n".join(lines) + "\n"
 print(text)
 if out:

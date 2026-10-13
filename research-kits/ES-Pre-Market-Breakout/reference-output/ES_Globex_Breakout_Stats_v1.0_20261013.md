@@ -3,7 +3,7 @@
 ## The question
 
 How often does the ES day session trade above the Globex high or below the Globex low?
-Globex is the overnight session before the day session opens. Al Brooks puts it at about 90% of days.
+Globex is the overnight session before the day session opens. The commonly quoted figure is about 90% of days.
 
 ## Data
 
@@ -34,4 +34,4 @@ Globex is the overnight session before the day session opens. Al Brooks puts it 
 | 2025 | 247 | 234 | 94.7% |
 | 2026 | 179 | 171 | 95.5% |
 
-Verdict: the ES day session breaks at least one side of the Globex range on 94.6% of 1,820 full sessions. The 90% claim holds.
+Verdict: the ES day session breaks at least one side of the Globex range on 94.6% of 1,820 full sessions. The 90% figure holds.

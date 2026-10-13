@@ -15,10 +15,10 @@
 Attach the CSV, then paste this:
 
 ```
-You are checking a trading claim with data. The attached CSV holds 15-minute ES futures bars covering the full 24-hour session.
+You are checking a commonly quoted trading statistic with data. The attached CSV holds 15-minute ES futures bars covering the full 24-hour session.
 Columns: time_chicago (bar start time, Chicago local time), open, high, low, close.
 
-Claim to test: the ES day session trades above the Globex high or below the Globex low on about 90% of days.
+Statistic to test: the ES day session trades above the Globex high or below the Globex low on about 90% of days.
 
 Rules:
 1. Each trading day has a Globex session and a day session.
@@ -31,7 +31,7 @@ Report:
 - The date range, the number of full sessions used, and the number left out.
 - A table: broke the high only, broke the low only, broke both, broke neither, broke at least one side. Days and share of full sessions, one decimal place.
 - The "at least one side" share for each calendar year.
-- One sentence: does the 90% claim hold?
+- One sentence: does the 90% figure hold?
 Write the code and run it. Do not estimate.
 ```
 

@@ -1,6 +1,6 @@
 # First 90 Minutes High or Low — Research Kit
 
-A self-contained kit to test one claim from the Brooks Trading Course on ES and FDAX:
+A self-contained kit to test one commonly quoted trading statistic on ES and FDAX:
 
 > The high or the low of the day is in by the end of the first 18 bars on the 5-minute chart on about 75% of days.
 
@@ -15,7 +15,7 @@ Part of the "My First Trading Edges" series on [Zen Trading Tech](https://zentra
 - ES: the high or the low of the day is in by the end of bar 18 (10:00 Chicago) on **80.7%** of 2,683 full sessions (2016-01-04 to 2026-10-09).
 - FDAX: the high or the low of the day is in by the end of bar 18 (10:30 Berlin) on **75.5%** of 1,300 full sessions (2021-09-01 to 2026-10-09).
 
-Every percentage is a share of all full sessions. The 75% claim holds on both markets. The reference output also gives bars 6, 12, 24 and 36.
+Every percentage is a share of all full sessions. The 75% figure holds on both markets. The reference output also gives bars 6, 12, 24 and 36.
 
 If you run the kit on the provided data, you should get these exact numbers.
 

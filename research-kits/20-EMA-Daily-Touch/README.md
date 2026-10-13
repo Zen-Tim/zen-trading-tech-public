@@ -1,6 +1,6 @@
 # 20 EMA Daily Touch — Research Kit
 
-A self-contained kit to test one claim from the Brooks Trading Course on ES and FDAX:
+A self-contained kit to test one commonly quoted trading statistic on ES and FDAX:
 
 > Price touches the 20 EMA on the 5-minute chart at some point in almost every day session.
 

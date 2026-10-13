@@ -3,7 +3,7 @@
 ## The question
 
 How often is the high of the day, or the low of the day, already in by the end of the first 18 five-minute bars?
-Al Brooks puts it at about 75% of days.
+The commonly quoted figure is about 75% of days.
 
 ## Data
 
@@ -34,4 +34,4 @@ Bar 18 row in days: 981 of 1,300.
 | 2025 | 253 | 199 | 78.7% |
 | 2026 | 198 | 133 | 67.2% |
 
-Verdict: the high or low of the day is in by the end of bar 18 on 75.5% of 1,300 full FDAX sessions. The 75% claim holds.
+Verdict: the high or low of the day is in by the end of bar 18 on 75.5% of 1,300 full FDAX sessions. The 75% figure holds.

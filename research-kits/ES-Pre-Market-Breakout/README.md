@@ -1,6 +1,6 @@
 # ES Pre-Market Breakout — Research Kit
 
-A self-contained kit to test one claim from the Brooks Trading Course on ES:
+A self-contained kit to test one commonly quoted trading statistic on ES:
 
 > The day session trades above the Globex high or below the Globex low on about 90% of days.
 
@@ -16,7 +16,7 @@ Part of the "My First Trading Edges" series on [Zen Trading Tech](https://zentra
 - High only 40.2%. Low only 33.0%. Both 21.4%. Neither 5.4%.
 - 2019 and 2020 run lower, at about 89% of days. 2021 to 2026 run between 94.7% and 97.6% of days.
 
-Every percentage is a share of all full sessions. The 90% claim holds.
+Every percentage is a share of all full sessions. The 90% figure holds.
 
 If you run the kit on the provided data, you should get these exact numbers.
 

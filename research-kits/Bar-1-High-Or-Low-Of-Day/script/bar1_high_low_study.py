@@ -38,7 +38,7 @@ lines = [
     "## The question",
     "",
     "How often does the first 5-minute bar of the day session make the high of the day or the low of the day?",
-    "Al Brooks puts it at about 20% of days.",
+    "The commonly quoted figure is about 20% of days.",
     "",
     "## Data",
     "",
@@ -64,7 +64,7 @@ lines = [
 full["year"] = full.index.str[:4]
 for y, x in full.groupby("year"):
     lines.append(f"| {y} | {len(x)} | {int(x.either.sum())} | {x.either.mean() * 100:.1f}% |")
-lines += ["", f"Verdict: bar 1 makes the high or low of the day on {pct(full.either.sum())} of {n:,} full {inst} sessions. The 20% claim holds." if full.either.mean() >= 0.2 else f"Verdict: {pct(full.either.sum())} of days, below the 20% claim."]
+lines += ["", f"Verdict: bar 1 makes the high or low of the day on {pct(full.either.sum())} of {n:,} full {inst} sessions. The figure of about 20% is too low." if full.either.mean() >= 0.2 else f"Verdict: {pct(full.either.sum())} of days, below the 20% figure."]
 text = "\n".join(lines) + "\n"
 print(text)
 if out:

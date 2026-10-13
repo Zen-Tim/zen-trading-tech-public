@@ -12,10 +12,10 @@
 Attach the CSV, then paste this:
 
 ```
-You are checking a trading claim with data. The attached CSV holds 5-minute bars for one futures market.
+You are checking a commonly quoted trading statistic with data. The attached CSV holds 5-minute bars for one futures market.
 Columns: date, time_chicago or time_berlin (bar start, exchange local time), bar (1 = first bar of the day session), open, high, low, close.
 
-Claim to test: the high or the low of the day is in by the end of bar 18 on about 75% of days.
+Statistic to test: the high or the low of the day is in by the end of bar 18 on about 75% of days.
 
 Rules:
 1. Group the bars by date. A full session has [81 for ES / 102 for FDAX] bars. Use full sessions only. Count the short sessions you leave out.
@@ -27,7 +27,7 @@ Report:
 - The date range, the number of full sessions used, and the number of short sessions left out.
 - A table for the end of bars 6, 12, 18, 24 and 36, with the clock time each bar ends: share of full sessions with the high in, the low in, and either one in. One decimal place.
 - The bar 18 share for each calendar year.
-- One sentence: does the 75% claim hold?
+- One sentence: does the 75% figure hold?
 Write the code and run it. Do not estimate.
 ```
 

@@ -3,7 +3,7 @@
 ## The question
 
 How often does price touch the 20 EMA on the 5-minute chart at some point during the day session?
-Al Brooks puts it at close to every day.
+The commonly quoted figure is close to every day.
 
 ## Data
 

@@ -11,11 +11,11 @@
 Attach the CSV, then paste this:
 
 ```
-You are checking a trading claim with data. The attached CSV holds 5-minute bars for one futures market.
+You are checking a commonly quoted trading statistic with data. The attached CSV holds 5-minute bars for one futures market.
 Columns: date, time_chicago or time_berlin (bar start, exchange local time), bar (1 = first bar of the day session), open, high, low, close, ema20.
 ema20 is a 20-bar exponential moving average of the close, already computed. Use it as given.
 
-Claim to test: price touches the 20 EMA at some point in almost every day session.
+Statistic to test: price touches the 20 EMA at some point in almost every day session.
 
 Rules:
 1. Group the bars by date. A full session has [81 for ES / 102 for FDAX] bars. Use full sessions only. Count the short sessions you leave out.
@@ -26,7 +26,7 @@ Report:
 - The date range, the number of full sessions used, and the number of short sessions left out.
 - A table: touched at least once, never touched, first touch on bar 1, first touch after bar 1. Days and share of full sessions, two decimal places.
 - The dates of any days that never touched.
-- One sentence: does the claim hold?
+- One sentence: does the figure hold?
 Write the code and run it. Do not estimate.
 ```
 

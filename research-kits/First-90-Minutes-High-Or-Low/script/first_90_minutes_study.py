@@ -43,7 +43,7 @@ lines = [
     "## The question",
     "",
     "How often is the high of the day, or the low of the day, already in by the end of the first 18 five-minute bars?",
-    "Al Brooks puts it at about 75% of days.",
+    "The commonly quoted figure is about 75% of days.",
     "",
     "## Data",
     "",
@@ -72,7 +72,7 @@ full["year"] = full.index.str[:4]
 for y, x in full.groupby("year"):
     lines.append(f"| {y} | {len(x)} | {int((x['first'] <= 18).sum())} | {(x['first'] <= 18).mean() * 100:.1f}% |")
 share = k / n * 100
-lines += ["", f"Verdict: the high or low of the day is in by the end of bar 18 on {share:.1f}% of {n:,} full {inst} sessions. " + ("The 75% claim holds." if share >= 75 else "Below the 75% claim.")]
+lines += ["", f"Verdict: the high or low of the day is in by the end of bar 18 on {share:.1f}% of {n:,} full {inst} sessions. " + ("The 75% figure holds." if share >= 75 else "Below the 75% figure.")]
 text = "\n".join(lines) + "\n"
 print(text)
 if out:

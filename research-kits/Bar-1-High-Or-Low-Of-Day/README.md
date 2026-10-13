@@ -1,6 +1,6 @@
 # Bar 1 High or Low of the Day — Research Kit
 
-A self-contained kit to test one claim from the Brooks Trading Course on ES and FDAX:
+A self-contained kit to test one commonly quoted trading statistic on ES and FDAX:
 
 > Bar 1 on the 5-minute chart is the high or the low of the day on about 20% of days.
 
@@ -15,7 +15,7 @@ Part of the "My First Trading Edges" series on [Zen Trading Tech](https://zentra
 - ES: bar 1 makes the high or the low of the day on **26.9%** of 2,683 full sessions (2016-01-04 to 2026-10-09). High 12.5%, low 14.4%, both 0%.
 - FDAX: bar 1 makes the high or the low of the day on **29.0%** of 1,300 full sessions (2021-09-01 to 2026-10-09). High 13.9%, low 15.1%, both 0%.
 
-Every percentage is a share of all full sessions. The 20% claim holds on both markets.
+Every percentage is a share of all full sessions. The figure of about 20% is too low on both markets: 26.9% of full sessions on ES and 29.0% on FDAX.
 
 If you run the kit on the provided data, you should get these exact numbers.
 
