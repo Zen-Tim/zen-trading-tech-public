@@ -1,4 +1,4 @@
-# First 90 Minutes High or Low — Research Kit
+# Research Kit #6: First 90 Minutes High or Low
 
 A self-contained kit to test one commonly quoted trading statistic on ES and FDAX:
 

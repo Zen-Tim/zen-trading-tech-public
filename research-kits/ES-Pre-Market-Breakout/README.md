@@ -1,4 +1,4 @@
-# ES Pre-Market Breakout — Research Kit
+# Research Kit #7: ES Pre-Market Breakout
 
 A self-contained kit to test one commonly quoted trading statistic on ES:
 

@@ -1,4 +1,4 @@
-# Bar 1 High or Low of the Day — Research Kit
+# Research Kit #5: Bar 1 High or Low of the Day
 
 A self-contained kit to test one commonly quoted trading statistic on ES and FDAX:
 

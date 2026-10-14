@@ -1,4 +1,4 @@
-# 20 EMA Daily Touch — Research Kit
+# Research Kit #8: 20 EMA Daily Touch
 
 A self-contained kit to test one commonly quoted trading statistic on ES and FDAX:
 
